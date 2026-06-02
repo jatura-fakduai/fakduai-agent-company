@@ -1,0 +1,49 @@
+{
+  "office": {"name": "Tech Startup", "theme": "modern", "pollInterval": 3000},
+  "agents": [
+    {"id": "ceo",         "name": "CEO",         "emoji": "👑", "role": "Chief Executive",       "color": "#FF6B6B", "hair": "short",    "hairColor": "#3a2a1a", "shirt": "#FF6B6B", "pants": "#3a3a5a"},
+    {"id": "cto",         "name": "Solution Architecture", "emoji": "🛠️", "role": "Solution Architecture", "color": "#4ECDC4", "hair": "messy",    "hairColor": "#2a3a2a", "shirt": "#4ECDC4", "pants": "#3a3a5a", "accessory": "glasses"},
+    {"id": "techlead",    "name": "Tech Lead",   "emoji": "⚡", "role": "Task Distribution",      "color": "#45B7D1", "hair": "neat",     "hairColor": "#1a2a3a", "shirt": "#45B7D1", "pants": "#2a2a4a"},
+    {"id": "frontend",    "name": "Frontend",    "emoji": "🎨", "role": "UI/UX Engineer",         "color": "#FFD93D", "hair": "ponytail", "hairColor": "#5a3a1a", "shirt": "#FFD93D", "pants": "#3a3a5a"},
+    {"id": "backend",     "name": "Backend",     "emoji": "⚙️", "role": "API & Infrastructure",  "color": "#6BCB77", "hair": "short",    "hairColor": "#1a2a3a", "shirt": "#6BCB77", "pants": "#2a2a4a"},
+    {"id": "qa",          "name": "QA",          "emoji": "🧪", "role": "Quality Assurance",      "color": "#E056A0", "hair": "bun",      "hairColor": "#4a2a4a", "shirt": "#E056A0", "pants": "#3a3a5a"},
+    {"id": "devops",      "name": "DevOps",      "emoji": "🔧", "role": "CI/CD & Infrastructure", "color": "#FF6348", "hair": "neat",     "hairColor": "#1a1a1a", "shirt": "#FF6348", "pants": "#2a2a4a"},
+    {"id": "pm",          "name": "PM",          "emoji": "📋", "role": "Product Manager",        "color": "#DDA0DD", "hair": "bun",      "hairColor": "#4a2a4a", "shirt": "#DDA0DD", "pants": "#3a3a5a"},
+    {"id": "ba",          "name": "BA",          "emoji": "🧩", "role": "Business Analyst",        "color": "#8E7DF2", "hair": "neat",     "hairColor": "#2a2350", "shirt": "#8E7DF2", "pants": "#34345a", "accessory": "glasses"},
+    {"id": "sa",          "name": "SA",          "emoji": "🗺️", "role": "System Analyst",          "color": "#20C997", "hair": "short",    "hairColor": "#1d3b33", "shirt": "#20C997", "pants": "#2a4a44"},
+    {"id": "designer",    "name": "Designer",    "emoji": "🖌️", "role": "Visual Design",          "color": "#FF9F43", "hair": "cap",      "hairColor": "#5a3a2a", "shirt": "#FF9F43", "pants": "#2a3a2a"},
+    {"id": "support",     "name": "Support",     "emoji": "🎧", "role": "Customer Support",       "color": "#5DADE2", "hair": "short",    "hairColor": "#3a2a1a", "shirt": "#5DADE2", "pants": "#3a3a5a"},
+    {"id": "data",        "name": "Data Eng",    "emoji": "📊", "role": "Data Engineering",       "color": "#58D68D", "hair": "messy",    "hairColor": "#2a3a2a", "shirt": "#58D68D", "pants": "#3a3a5a", "accessory": "glasses"}
+  ],
+  "rooms": [
+    {"id": "ceo-office",   "label": "👑 CEO Office",   "x": 1,  "y": 1,  "w": 5, "h": 4, "color": "rgba(255,107,107,0.08)"},
+    {"id": "cto-office",   "label": "🛠️ Solution Architecture",  "x": 7,  "y": 1,  "w": 5, "h": 4, "color": "rgba(78,205,196,0.08)"},
+    {"id": "dev-room",     "label": "💻 Dev Room",     "x": 13, "y": 1,  "w": 10,"h": 4, "color": "rgba(69,183,209,0.06)"},
+    {"id": "qa-room",      "label": "🧪 QA Lab",       "x": 24, "y": 1,  "w": 5, "h": 4, "color": "rgba(224,86,160,0.08)"},
+    {"id": "devops-room",  "label": "🔧 DevOps",       "x": 30, "y": 1,  "w": 5, "h": 4, "color": "rgba(255,99,72,0.08)"},
+    {"id": "meeting-1",    "label": "📋 Meeting 1",   "x": 1,  "y": 8,  "w": 6, "h": 4, "color": "rgba(200,140,100,0.06)", "type": "meeting"},
+    {"id": "meeting-2",    "label": "📋 Meeting 2",   "x": 8,  "y": 8,  "w": 6, "h": 4, "color": "rgba(200,140,100,0.06)", "type": "meeting"},
+    {"id": "lounge",       "label": "🛋️ Lounge",       "x": 30, "y": 8,  "w": 5, "h": 4, "color": "rgba(100,149,237,0.06)", "type": "lounge"},
+    {"id": "pm-desk",      "label": "📋 PM Desk",      "x": 1,  "y": 14, "w": 5, "h": 4, "color": "rgba(221,160,221,0.08)"},
+    {"id": "ba-desk",      "label": "🧩 BA Desk",      "x": 7,  "y": 14, "w": 5, "h": 4, "color": "rgba(142,125,242,0.08)"},
+    {"id": "sa-desk",      "label": "🗺️ SA Desk",      "x": 13, "y": 14, "w": 5, "h": 4, "color": "rgba(32,201,151,0.08)"},
+    {"id": "design-desk",  "label": "🖌️ Design Desk", "x": 19, "y": 14, "w": 5, "h": 4, "color": "rgba(255,159,67,0.08)"},
+    {"id": "support-desk", "label": "🎧 Support",      "x": 25, "y": 14, "w": 5, "h": 4, "color": "rgba(93,173,226,0.08)"},
+    {"id": "data-desk",    "label": "📊 Data",         "x": 31, "y": 14, "w": 5, "h": 4, "color": "rgba(88,214,141,0.08)"}
+  ],
+  "agentHomes": {
+    "ceo":       {"x": 3.5, "y": 3},
+    "cto":       {"x": 9.5, "y": 3},
+    "techlead":  {"x": 15,  "y": 3},
+    "frontend":  {"x": 17.5,"y": 3},
+    "backend":   {"x": 20,  "y": 3},
+    "qa":        {"x": 26.5,"y": 3},
+    "devops":    {"x": 32.5,"y": 3},
+    "pm":        {"x": 3.5, "y": 16},
+    "ba":        {"x": 9.5, "y": 16},
+    "sa":        {"x": 15.5,"y": 16},
+    "designer":  {"x": 21.5,"y": 16},
+    "support":   {"x": 27.5,"y": 16},
+    "data":      {"x": 33.5,"y": 16}
+  }
+}

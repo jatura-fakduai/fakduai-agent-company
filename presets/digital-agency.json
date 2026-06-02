@@ -1,0 +1,41 @@
+{
+  "office": {"name": "Digital Agency", "theme": "creative", "pollInterval": 3000},
+  "agents": [
+    {"id": "creative-dir",   "name": "Creative Dir",  "emoji": "🎭", "role": "Creative Direction",        "color": "#9B59B6", "hair": "messy",    "hairColor": "#2a1a3a", "shirt": "#9B59B6", "pants": "#2a2a4a"},
+    {"id": "art-dir",        "name": "Art Director",   "emoji": "🖌️", "role": "Visual & Brand",           "color": "#E74C3C", "hair": "ponytail", "hairColor": "#5a2a1a", "shirt": "#E74C3C", "pants": "#3a2a2a"},
+    {"id": "copywriter",     "name": "Copywriter",     "emoji": "✍️", "role": "Content & Ad Copy",        "color": "#FFD93D", "hair": "neat",     "hairColor": "#3a2a1a", "shirt": "#FFD93D", "pants": "#3a3a5a"},
+    {"id": "media-planner",  "name": "Media Planner",  "emoji": "📱", "role": "Media Buying & Strategy",  "color": "#3498DB", "hair": "short",    "hairColor": "#1a2a3a", "shirt": "#3498DB", "pants": "#2a2a4a"},
+    {"id": "account-mgr",    "name": "Account Mgr",    "emoji": "🤝", "role": "Client Relations",         "color": "#2ECC71", "hair": "bun",      "hairColor": "#3a2a1a", "shirt": "#2ECC71", "pants": "#3a3a5a"},
+    {"id": "social-mgr",     "name": "Social Mgr",     "emoji": "📸", "role": "Social Media",             "color": "#E67E22", "hair": "cap",      "hairColor": "#5a3a2a", "shirt": "#E67E22", "pants": "#2a3a2a"},
+    {"id": "seo-spec",       "name": "SEO Specialist", "emoji": "🔍", "role": "SEO & SEM",               "color": "#1ABC9C", "hair": "neat",     "hairColor": "#1a1a1a", "shirt": "#1ABC9C", "pants": "#2a2a4a", "accessory": "glasses"},
+    {"id": "video-prod",     "name": "Video Prod",     "emoji": "🎬", "role": "Video Production",         "color": "#FF6B6B", "hair": "messy",    "hairColor": "#4a2a1a", "shirt": "#FF6B6B", "pants": "#3a2a2a"},
+    {"id": "web-dev",        "name": "Web Dev",        "emoji": "💻", "role": "Web Development",          "color": "#6BCB77", "hair": "short",    "hairColor": "#1a2a3a", "shirt": "#6BCB77", "pants": "#2a2a4a"},
+    {"id": "analytics",      "name": "Analyst",        "emoji": "📊", "role": "Performance Analytics",    "color": "#DDA0DD", "hair": "bun",      "hairColor": "#4a2a4a", "shirt": "#DDA0DD", "pants": "#3a3a5a"}
+  ],
+  "rooms": [
+    {"id": "creative-room",  "label": "🎭 Creative",      "x": 1,  "y": 1,  "w": 6, "h": 5, "color": "rgba(155,89,182,0.08)"},
+    {"id": "art-room",       "label": "🖌️ Art Studio",    "x": 8,  "y": 1,  "w": 6, "h": 5, "color": "rgba(231,76,60,0.08)"},
+    {"id": "content-room",   "label": "✍️ Content",        "x": 15, "y": 1,  "w": 6, "h": 5, "color": "rgba(255,217,61,0.08)"},
+    {"id": "media-room",     "label": "📱 Media",          "x": 22, "y": 1,  "w": 6, "h": 5, "color": "rgba(52,152,219,0.08)"},
+    {"id": "meeting-1",      "label": "📋 Meeting",       "x": 1,  "y": 9,  "w": 6, "h": 4, "color": "rgba(200,140,100,0.06)", "type": "meeting"},
+    {"id": "meeting-2",      "label": "📋 Client Meet",   "x": 8,  "y": 9,  "w": 6, "h": 4, "color": "rgba(200,140,100,0.06)", "type": "meeting"},
+    {"id": "lounge",         "label": "🛋️ Lounge",         "x": 28, "y": 9,  "w": 5, "h": 4, "color": "rgba(100,149,237,0.06)", "type": "lounge"},
+    {"id": "account-desk",   "label": "🤝 Accounts",       "x": 1,  "y": 15, "w": 5, "h": 4, "color": "rgba(46,204,113,0.08)"},
+    {"id": "social-desk",    "label": "📸 Social",          "x": 7,  "y": 15, "w": 5, "h": 4, "color": "rgba(230,126,34,0.08)"},
+    {"id": "seo-desk",       "label": "🔍 SEO",             "x": 13, "y": 15, "w": 5, "h": 4, "color": "rgba(26,188,156,0.08)"},
+    {"id": "video-room",     "label": "🎬 Video",           "x": 19, "y": 15, "w": 5, "h": 4, "color": "rgba(255,107,107,0.08)"},
+    {"id": "dev-desk",       "label": "💻 Dev",             "x": 25, "y": 15, "w": 5, "h": 4, "color": "rgba(107,203,119,0.08)"}
+  ],
+  "agentHomes": {
+    "creative-dir":  {"x": 4,   "y": 3.5},
+    "art-dir":       {"x": 11,  "y": 3.5},
+    "copywriter":    {"x": 18,  "y": 3.5},
+    "media-planner": {"x": 25,  "y": 3.5},
+    "account-mgr":   {"x": 3.5, "y": 17},
+    "social-mgr":    {"x": 9.5, "y": 17},
+    "seo-spec":      {"x": 15.5,"y": 17},
+    "video-prod":    {"x": 21.5,"y": 17},
+    "web-dev":       {"x": 27.5,"y": 17},
+    "analytics":     {"x": 31,  "y": 17}
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "cards": [
+    {
+      "id": "frontend",
+      "title": "Update dashboard board layout",
+      "owner": "Frontend Engineer",
+      "emoji": "",
+      "color": "#FFD93D",
+      "status": "working",
+      "stage": "doing",
+      "plan": "Make the work board responsive and keep cards readable across desktop, tablet, and phone viewports.",
+      "nextAction": "Run browser checks on the updated board.",
+      "lastOutput": "Implemented responsive column behavior and compact evidence rendering.",
+      "collaboration": "QA, Tech Lead",
+      "role": "UI/UX Engineer",
+      "updatedAt": "2026-01-01T09:10:00Z",
+      "ageMinutes": 20,
+      "screenshots": [],
+      "evidence": []
+    },
+    {
+      "id": "qa",
+      "title": "Validate dashboard refresh behavior",
+      "owner": "QA Engineer",
+      "emoji": "",
+      "color": "#E056A0",
+      "status": "blocked",
+      "stage": "blocked",
+      "plan": "Verify desktop and mobile layouts and capture reproducible evidence for release review.",
+      "nextAction": "Run mobile viewport smoke after the dashboard is served locally.",
+      "lastOutput": "Desktop smoke passed; mobile evidence remains open.",
+      "collaboration": "Frontend, Tech Lead",
+      "role": "Quality Assurance",
+      "updatedAt": "2026-01-01T09:20:00Z",
+      "ageMinutes": 10,
+      "screenshots": [],
+      "evidence": [
+        {
+          "title": "Desktop smoke notes",
+          "path": "data/artifacts/qa/dashboard-desktop-smoke.md",
+          "mimeType": "text/markdown",
+          "artifactType": "report",
+          "updatedAt": "2026-01-01T09:20:00Z"
+        }
+      ],
+      "blocker": {
+        "isBlocked": true,
+        "owner": "Frontend",
+        "missingInput": "Fresh mobile browser evidence",
+        "nextAction": "Serve the dashboard and rerun mobile smoke."
+      }
+    },
+    {
+      "id": "techlead",
+      "title": "Review dashboard release readiness",
+      "owner": "Tech Lead",
+      "emoji": "",
+      "color": "#45B7D1",
+      "status": "idle",
+      "stage": "review",
+      "plan": "Confirm implementation evidence, QA results, and any remaining release risks.",
+      "nextAction": "Review QA evidence after mobile smoke completes.",
+      "lastOutput": "Release gate is waiting on mobile evidence.",
+      "collaboration": "QA, Frontend, PM",
+      "role": "Task Distribution",
+      "updatedAt": "2026-01-01T09:25:00Z",
+      "ageMinutes": 5,
+      "screenshots": [],
+      "evidence": []
+    },
+    {
+      "id": "designer",
+      "title": "Document dashboard acceptance criteria",
+      "owner": "Solution Designer",
+      "emoji": "",
+      "color": "#4ECDC4",
+      "status": "done",
+      "stage": "done",
+      "plan": "Define readable states for board columns, activity feed, evidence rows, and empty states.",
+      "nextAction": "Support review questions if implementation finds a mismatch.",
+      "lastOutput": "Acceptance criteria delivered to the team.",
+      "collaboration": "PM, Frontend",
+      "role": "Solution Designer",
+      "updatedAt": "2026-01-01T09:05:00Z",
+      "ageMinutes": 25,
+      "screenshots": [],
+      "evidence": []
+    }
+  ],
+  "meta": {
+    "generatedAt": "2026-01-01T09:30:00Z",
+    "sourceStatus": "sample"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "office": {"name": "Hotel Operations", "theme": "elegant", "pollInterval": 3000},
+  "agents": [
+    {"id": "gm",            "name": "GM",            "emoji": "👔", "role": "General Manager",         "color": "#2C3E50", "hair": "neat",     "hairColor": "#1a1a1a", "shirt": "#2C3E50", "pants": "#1a1a2a"},
+    {"id": "front-desk",    "name": "Front Desk",    "emoji": "🛎️", "role": "Check-in/out & Concierge","color": "#3498DB", "hair": "bun",      "hairColor": "#3a2a1a", "shirt": "#3498DB", "pants": "#3a3a5a"},
+    {"id": "fnb-mgr",       "name": "F&B Manager",   "emoji": "🍽️", "role": "Food & Beverage",         "color": "#E74C3C", "hair": "short",    "hairColor": "#3a2a1a", "shirt": "#E74C3C", "pants": "#3a2a2a"},
+    {"id": "exec-chef",     "name": "Exec Chef",     "emoji": "👨‍🍳", "role": "Executive Chef",           "color": "#FFFFFF", "hair": "short",    "hairColor": "#2a2a2a", "shirt": "#FFFFFF", "pants": "#2a2a2a"},
+    {"id": "housekeeping",  "name": "Housekeeping",  "emoji": "🧹", "role": "Housekeeping Lead",        "color": "#27AE60", "hair": "ponytail", "hairColor": "#3a2a1a", "shirt": "#27AE60", "pants": "#2a3a2a"},
+    {"id": "events",        "name": "Events",        "emoji": "🎪", "role": "Events Coordinator",       "color": "#F39C12", "hair": "cap",      "hairColor": "#4a3a2a", "shirt": "#F39C12", "pants": "#3a3a2a"},
+    {"id": "guest-rel",     "name": "Guest Rel",     "emoji": "💎", "role": "Guest Relations VIP",      "color": "#9B59B6", "hair": "bun",      "hairColor": "#2a1a3a", "shirt": "#9B59B6", "pants": "#2a2a4a"},
+    {"id": "security",      "name": "Security",      "emoji": "🛡️", "role": "Security Chief",           "color": "#34495E", "hair": "short",    "hairColor": "#1a1a1a", "shirt": "#34495E", "pants": "#1a1a2a"},
+    {"id": "maintenance",   "name": "Maintenance",   "emoji": "🔧", "role": "Building Maintenance",     "color": "#E67E22", "hair": "messy",    "hairColor": "#5a3a2a", "shirt": "#E67E22", "pants": "#2a3a2a"},
+    {"id": "spa-wellness",  "name": "Spa & Wellness","emoji": "🧖", "role": "Spa & Wellness Manager",   "color": "#1ABC9C", "hair": "ponytail", "hairColor": "#3a2a4a", "shirt": "#1ABC9C", "pants": "#2a3a4a"},
+    {"id": "revenue",       "name": "Revenue Mgr",   "emoji": "💰", "role": "Revenue Management",       "color": "#DDA0DD", "hair": "neat",     "hairColor": "#2a2a4a", "shirt": "#DDA0DD", "pants": "#3a3a5a", "accessory": "glasses"},
+    {"id": "hr",            "name": "HR",            "emoji": "👥", "role": "Human Resources",          "color": "#5DADE2", "hair": "bun",      "hairColor": "#3a2a1a", "shirt": "#5DADE2", "pants": "#3a3a5a"}
+  ],
+  "rooms": [
+    {"id": "gm-office",     "label": "👔 GM Office",     "x": 1,  "y": 1,  "w": 5, "h": 4, "color": "rgba(44,62,80,0.1)"},
+    {"id": "lobby",         "label": "🛎️ Lobby",          "x": 7,  "y": 1,  "w": 8, "h": 4, "color": "rgba(52,152,219,0.08)"},
+    {"id": "fnb-office",    "label": "🍽️ F&B Office",    "x": 16, "y": 1,  "w": 5, "h": 4, "color": "rgba(231,76,60,0.08)"},
+    {"id": "kitchen",       "label": "👨‍🍳 Kitchen",        "x": 22, "y": 1,  "w": 6, "h": 4, "color": "rgba(200,200,200,0.1)"},
+    {"id": "meeting-1",     "label": "📋 Meeting",        "x": 1,  "y": 8,  "w": 6, "h": 4, "color": "rgba(200,140,100,0.06)", "type": "meeting"},
+    {"id": "meeting-2",     "label": "🎪 Event Hall",     "x": 8,  "y": 8,  "w": 8, "h": 4, "color": "rgba(243,156,18,0.06)", "type": "meeting"},
+    {"id": "spa",           "label": "🧖 Spa",             "x": 29, "y": 1,  "w": 5, "h": 4, "color": "rgba(26,188,156,0.08)"},
+    {"id": "lounge",        "label": "🛋️ Staff Lounge",    "x": 29, "y": 8,  "w": 5, "h": 4, "color": "rgba(100,149,237,0.06)", "type": "lounge"},
+    {"id": "hk-desk",       "label": "🧹 Housekeeping",   "x": 1,  "y": 15, "w": 5, "h": 4, "color": "rgba(39,174,96,0.08)"},
+    {"id": "security-desk", "label": "🛡️ Security",        "x": 7,  "y": 15, "w": 5, "h": 4, "color": "rgba(52,73,94,0.08)"},
+    {"id": "maint-desk",    "label": "🔧 Maintenance",    "x": 13, "y": 15, "w": 5, "h": 4, "color": "rgba(230,126,34,0.08)"},
+    {"id": "guest-desk",    "label": "💎 Guest Rel",       "x": 19, "y": 15, "w": 5, "h": 4, "color": "rgba(155,89,182,0.08)"},
+    {"id": "revenue-desk",  "label": "💰 Revenue",         "x": 25, "y": 15, "w": 5, "h": 4, "color": "rgba(221,160,221,0.08)"},
+    {"id": "hr-desk",       "label": "👥 HR",              "x": 31, "y": 15, "w": 5, "h": 4, "color": "rgba(93,173,226,0.08)"}
+  ],
+  "agentHomes": {
+    "gm":           {"x": 3.5, "y": 3},
+    "front-desk":   {"x": 11,  "y": 3},
+    "fnb-mgr":      {"x": 18.5,"y": 3},
+    "exec-chef":    {"x": 25,  "y": 3},
+    "spa-wellness": {"x": 31.5,"y": 3},
+    "housekeeping": {"x": 3.5, "y": 17},
+    "security":     {"x": 9.5, "y": 17},
+    "maintenance":  {"x": 15.5,"y": 17},
+    "guest-rel":    {"x": 21.5,"y": 17},
+    "revenue":      {"x": 27.5,"y": 17},
+    "hr":           {"x": 33.5,"y": 17}
+  }
+}

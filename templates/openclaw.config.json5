@@ -1,0 +1,15 @@
+// OpenClaw config template
+// Generate from: ./scripts/bootstrap.sh
+// This file shows the expected structure.
+// bootstrap.sh will output the actual config to merge into openclaw.json
+
+{
+  agents: {
+    // One entry per agent from config/office.json
+    // "<id>": { workspace: "/data/.openclaw/workspace-<id>" }
+  },
+  bindings: [
+    // Bind the first agent to a Telegram bot
+    // { agentId: "<first-agent-id>", match: { channel: "telegram", accountId: "<bot-account-id>" } }
+  ]
+}
