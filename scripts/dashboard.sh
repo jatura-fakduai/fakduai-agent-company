@@ -85,13 +85,19 @@ export REPO_ROOT SHARED_ROOT WORKFLOW_ROOT OUTBOX_ROOT
 SERVE_DIR="/tmp/openclaw-dashboard"
 BUILD_DIR="/tmp/openclaw-dashboard-build"
 mkdir -p "$SERVE_DIR/data"
-# Copy static UI assets to serve dir (only if not already there or if changed)
-if [ ! -d "$SERVE_DIR/css" ] || [ ui/dashboard/index.html -nt "$SERVE_DIR/index.html" ]; then
-  cp -a ui/dashboard/* "$SERVE_DIR/" 2>/dev/null || true
-fi
+
+sync_static_ui() {
+  # Keep static UI fresh without overwriting generated runtime data.
+  cp -a ui/dashboard/index.html "$SERVE_DIR/index.html"
+  if [ -d ui/dashboard/assets ]; then
+    mkdir -p "$SERVE_DIR/assets"
+    cp -a ui/dashboard/assets/. "$SERVE_DIR/assets/" 2>/dev/null || true
+  fi
+}
 
 # Helper: generate and copy data to serve dir atomically
 generate_and_sync() {
+  sync_static_ui
   # Generate outside the mounted repo path to avoid stale root-owned cache files.
   mkdir -p "$BUILD_DIR/data"
   DASHBOARD_DATA_DIR="$BUILD_DIR/data" bash scripts/generate-dashboard.sh "$@"
