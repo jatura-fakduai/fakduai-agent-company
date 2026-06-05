@@ -76,6 +76,69 @@ with open(path, "a", encoding="utf-8") as f:
     f.write(json.dumps(event, ensure_ascii=False) + "\n")
 PY
 
+# Keep the receiving agent's shared status file fresh so the dashboard can
+# reflect routed work immediately instead of remaining stuck at idle.
+STATUS_ROOT="${SHARED_ROOT:-$HOME/.openclaw/shared/agents}"
+TARGET_STATUS="$STATUS_ROOT/$TO/STATUS.md"
+if [ -f "$TARGET_STATUS" ]; then
+  python3 - "$TARGET_STATUS" "$WORKFLOW_ID" "$FROM" "$HANDOFF_FILE" "$BODY" <<'PY'
+import datetime, re, sys
+from pathlib import Path
+
+status_path = Path(sys.argv[1])
+workflow_id = sys.argv[2]
+from_agent = sys.argv[3]
+handoff_file = sys.argv[4]
+body = sys.argv[5]
+
+text = status_path.read_text(encoding="utf-8")
+
+def replace_field(text, field, value):
+    pattern = re.compile(rf'(^-\s*{re.escape(field)}\s*:\s*).*$',
+                         re.IGNORECASE | re.MULTILINE)
+    if pattern.search(text):
+        return pattern.sub(lambda m: f"{m.group(1)}{value}", text, count=1)
+    return text.rstrip() + f"\n- {field}: {value}\n"
+
+def extract_section(text, heading):
+    lines = text.splitlines()
+    capture = False
+    buf = []
+    target = f"## {heading}".lower()
+    for line in lines:
+        s = line.strip()
+        if s.lower().startswith("## "):
+            if capture:
+                break
+            capture = s.lower() == target
+            continue
+        if capture and s:
+            buf.append(s)
+    return " ".join(buf).strip()
+
+next_action = extract_section(body, "Task") or extract_section(body, "Expected Output")
+if not next_action:
+    next_action = f"Process workflow {workflow_id} handoff from {from_agent}"
+next_action = next_action[:240]
+
+summary = extract_section(body, "Definition of Done") or extract_section(body, "Task") or "working on routed handoff"
+summary = summary[:240]
+
+text = replace_field(text, "refreshed_at", datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+text = replace_field(text, "current objective", f"{workflow_id}: {next_action}")
+text = replace_field(text, "current status", "working")
+text = replace_field(text, "active blocker", "none")
+text = replace_field(text, "next action", next_action)
+text = replace_field(text, "last meaningful output", summary)
+text = replace_field(text, "workflow id", workflow_id)
+
+if "- workflow id:" not in text.lower():
+    text = text.rstrip() + f"\n- workflow id: {workflow_id}\n"
+
+status_path.write_text(text, encoding="utf-8")
+PY
+fi
+
 MESSAGE="$(cat <<EOF
 You have received a handoff from $FROM.
 

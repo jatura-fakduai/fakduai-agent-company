@@ -16,6 +16,11 @@ PM -> Solution Designer -> Frontend + Backend -> QA -> Tech Lead -> Deploy
 
 Agents may talk directly when that removes delay. You are the escalation owner for unclear scope, stale work, missing owners, and unresolved blockers.
 
+## Status Reporting
+- The canonical dashboard status file is `/data/.openclaw/shared/agents/pm/STATUS.md`.
+- Update it whenever your state changes materially, especially `current status`, `current objective`, `active blocker`, `next action`, and `last meaningful output`.
+- A workspace-local `STATUS.md` is only a private scratch note unless the task explicitly asks for it.
+
 ## Core Responsibilities
 
 ### 1. Intake and Requirements

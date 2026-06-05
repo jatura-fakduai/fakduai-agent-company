@@ -35,7 +35,7 @@ if [ ! -d "$OUTBOX_ROOT" ]; then
   OUTBOX_ROOT="$DEFAULT_OPENCLAW_HOME/shared/company-outbox"
 fi
 export OPENCLAW_STATE_DIR="$DEFAULT_OPENCLAW_HOME" WORKFLOW_ROOT OUTBOX_ROOT
-OUT_DIR="$REPO_ROOT/ui/dashboard/data"
+OUT_DIR="${DASHBOARD_DATA_DIR:-$REPO_ROOT/ui/dashboard/data}"
 OUT_FILE="$OUT_DIR/agents.json"
 SCREEN_DIR="$OUT_DIR/screenshots"
 
@@ -499,8 +499,6 @@ for slug, acfg in agents_config.items():
         stage = 'done'
     elif raw_status == 'blocked':
         stage = 'blocked'
-    elif slug == 'qa' and raw_status == 'working':
-        stage = 'review'
     elif raw_status == 'working':
         stage = 'doing'
     else:

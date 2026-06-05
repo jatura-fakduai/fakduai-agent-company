@@ -1026,20 +1026,23 @@ function renderBoard(cards){
   bv.className='board';
   bv.hidden=false;lv.hidden=true;as.hidden=true;
   bv.style.display='';lv.style.display='';as.style.display='';
-  const COLS={doing:[],review:[],blocked:[],done:[]};
+  const COLS={todo:[],doing:[],blocked:[],done:[]};
   const stageOf=c=>{
     if(blocker(c).is)return'blocked';
     const s=(c.stage||'').toLowerCase();
-    if(s==='test'||s==='testing'||s==='qa')return'review';
+    if(s==='todo')return'todo';
+    if(s==='backlog'||s==='new'||s==='pending')return'todo';
+    if(s==='test'||s==='testing'||s==='qa'||s==='review')return'doing';
     if(COLS[s])return s;
     const n=norm(c.status);
+    if(n==='idle')return'todo';
     if(n==='done')return'done';
     if(n==='blocked')return'blocked';
     if(n==='working')return'doing';
-    return'review';
+    return'todo';
   };
   cards.forEach(c=>COLS[stageOf(c)].push(c));
-  const CFG={doing:{c:'#58a6ff',l:'Doing'},review:{c:'#d29922',l:'Review'},blocked:{c:'#f85149',l:'Blocked'},done:{c:'#3fb950',l:'Done'}};
+  const CFG={todo:{c:'#8b949e',l:'Todo'},doing:{c:'#58a6ff',l:'Doing'},blocked:{c:'#f85149',l:'Blocked'},done:{c:'#3fb950',l:'Done'}};
   bv.innerHTML=Object.entries(CFG).map(([k,cfg])=>{
     const col=COLS[k]||[];
     return`<div><div class="colh" style="border-color:${cfg.c}"><span style="width:8px;height:8px;border-radius:50%;background:${cfg.c}"></span><span class="colt">${cfg.l}</span><span class="colc" style="background:${cfg.c}22;color:${cfg.c}">${col.length}</span></div>${col.length?col.map(c=>ch(c)).join(''):'<div class="ecol">ไม่มี</div>'}</div>`}).join('');

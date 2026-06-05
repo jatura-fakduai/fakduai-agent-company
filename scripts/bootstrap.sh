@@ -47,13 +47,14 @@ if a:
   WS="$WORKSPACE_ROOT/workspace-$AGENT_ID"
   mkdir -p "$WS" "$WS/memory"
 
-  TEMPLATE="$REPO_ROOT/templates/workspaces/$AGENT_ID"
-  if [ ! -d "$TEMPLATE" ]; then
-    TEMPLATE="$DEFAULT_TEMPLATE"
-  fi
+  ROLE_TEMPLATE="$REPO_ROOT/templates/workspaces/$AGENT_ID"
 
   # Copy templates with placeholder substitution
   for F in SOUL.md AGENTS.md IDENTITY.md TOOLS.md; do
+    TEMPLATE="$DEFAULT_TEMPLATE"
+    if [ -f "$ROLE_TEMPLATE/$F" ]; then
+      TEMPLATE="$ROLE_TEMPLATE"
+    fi
     if [ -f "$TEMPLATE/$F" ]; then
       python3 - "$TEMPLATE/$F" "$WS/$F" "$NAME" "$ROLE" "$EMOJI" <<'PY'
 import sys
@@ -126,11 +127,22 @@ echo "==> Generating dashboard data"
 export OPENCLAW_STATE_DIR SHARED_ROOT WORKFLOW_ROOT OUTBOX_ROOT
 bash "$REPO_ROOT/scripts/generate-dashboard.sh"
 
+if [ "${SKIP_OPENCLAW_SYNC:-0}" != "1" ]; then
+  echo "==> Syncing OpenClaw agent config"
+  OPENCLAW_STATE_DIR="$OPENCLAW_STATE_DIR" \
+    WORKSPACE_ROOT="$WORKSPACE_ROOT" \
+    CONFIG="$CONFIG" \
+    bash "$REPO_ROOT/scripts/sync-openclaw-config.sh"
+else
+  echo "==> Skipping OpenClaw config sync because SKIP_OPENCLAW_SYNC=1"
+fi
+
 echo ""
 echo "==> Bootstrap complete!"
 echo "    Agents created: $(echo "$AGENTS" | wc -l)"
 echo ""
 echo "    Next steps:"
-echo "    1. Review and merge $CONFIG_SNIPPET into openclaw.json"
-echo "    2. openclaw gateway restart"
-echo "    3. ./scripts/dashboard.sh"
+echo "    1. Restart/recreate the OpenClaw gateway or container"
+echo "    2. ./scripts/dashboard.sh"
+echo ""
+echo "    Re-run ./scripts/sync-openclaw-config.sh after changing config/office.json."

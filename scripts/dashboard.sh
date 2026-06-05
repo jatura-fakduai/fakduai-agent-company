@@ -83,6 +83,7 @@ export REPO_ROOT SHARED_ROOT WORKFLOW_ROOT OUTBOX_ROOT
 
 # ---- Serve from local /tmp to avoid fakeowner mount cache coherence issues ----
 SERVE_DIR="/tmp/openclaw-dashboard"
+BUILD_DIR="/tmp/openclaw-dashboard-build"
 mkdir -p "$SERVE_DIR/data"
 # Copy static UI assets to serve dir (only if not already there or if changed)
 if [ ! -d "$SERVE_DIR/css" ] || [ ui/dashboard/index.html -nt "$SERVE_DIR/index.html" ]; then
@@ -91,11 +92,12 @@ fi
 
 # Helper: generate and copy data to serve dir atomically
 generate_and_sync() {
-  # Generate to the mounted path (standard location)
-  bash scripts/generate-dashboard.sh "$@"
+  # Generate outside the mounted repo path to avoid stale root-owned cache files.
+  mkdir -p "$BUILD_DIR/data"
+  DASHBOARD_DATA_DIR="$BUILD_DIR/data" bash scripts/generate-dashboard.sh "$@"
   # Copy generated JSON to /tmp serve dir atomically
   for f in agents.json activity.json kanban.json artifacts.json; do
-    src="ui/dashboard/data/$f"
+    src="$BUILD_DIR/data/$f"
     if [ -f "$src" ]; then
       # Read from Python (same process) to avoid fakeowner read cache, write to /tmp
       python3 -c "
@@ -108,22 +110,22 @@ with open('$SERVE_DIR/data/$f', 'w') as fh:
     fi
   done
   # Copy screenshot and workflow dirs if present
-  if [ -d ui/dashboard/data/screenshots ]; then
-    cp -a ui/dashboard/data/screenshots "$SERVE_DIR/data/" 2>/dev/null || true
+  if [ -d "$BUILD_DIR/data/screenshots" ]; then
+    cp -a "$BUILD_DIR/data/screenshots" "$SERVE_DIR/data/" 2>/dev/null || true
   fi
-  if [ -d ui/dashboard/data/workflows ]; then
+  if [ -d "$BUILD_DIR/data/workflows" ]; then
     rm -rf "$SERVE_DIR/data/workflows" 2>/dev/null || true
-    cp -a ui/dashboard/data/workflows "$SERVE_DIR/data/" 2>/dev/null || true
+    cp -a "$BUILD_DIR/data/workflows" "$SERVE_DIR/data/" 2>/dev/null || true
   fi
-  if [ -d ui/dashboard/data/docs ]; then
-    cp -a ui/dashboard/data/docs "$SERVE_DIR/data/" 2>/dev/null || true
+  if [ -d "$BUILD_DIR/data/docs" ]; then
+    cp -a "$BUILD_DIR/data/docs" "$SERVE_DIR/data/" 2>/dev/null || true
   fi
-  if [ -d ui/dashboard/data/artifacts ]; then
-    cp -a ui/dashboard/data/artifacts "$SERVE_DIR/data/" 2>/dev/null || true
+  if [ -d "$BUILD_DIR/data/artifacts" ]; then
+    cp -a "$BUILD_DIR/data/artifacts" "$SERVE_DIR/data/" 2>/dev/null || true
   fi
-  if [ -d ui/dashboard/data/agent-files ]; then
+  if [ -d "$BUILD_DIR/data/agent-files" ]; then
     rm -rf "$SERVE_DIR/data/agent-files" 2>/dev/null || true
-    cp -a ui/dashboard/data/agent-files "$SERVE_DIR/data/" 2>/dev/null || true
+    cp -a "$BUILD_DIR/data/agent-files" "$SERVE_DIR/data/" 2>/dev/null || true
   fi
 }
 

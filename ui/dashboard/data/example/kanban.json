@@ -57,7 +57,7 @@
       "emoji": "",
       "color": "#45B7D1",
       "status": "idle",
-      "stage": "review",
+      "stage": "doing",
       "plan": "Confirm implementation evidence, QA results, and any remaining release risks.",
       "nextAction": "Review QA evidence after mobile smoke completes.",
       "lastOutput": "Release gate is waiting on mobile evidence.",

@@ -11,8 +11,8 @@ There is no package manager or build system. The stack is Bash + Python 3 + plai
 ## Key Commands
 
 ```bash
-# 1. Pick a preset and bootstrap agent workspaces
-cp presets/tech-startup.json config/office.json
+# 1. Review config and bootstrap agent workspaces
+$EDITOR config/office.json
 ./scripts/bootstrap.sh
 
 # 2. (Re)generate dashboard data from STATUS.md files
@@ -48,7 +48,7 @@ scripts/generate-dashboard.sh   (Bash + Python)
 
 ### Agent workspaces (outside the repo)
 
-`bootstrap.sh` copies `templates/workspaces/default/` to `~/.openclaw/workspace-<agent-id>/` for each agent defined in `config/office.json`. Each workspace contains:
+`bootstrap.sh` creates `~/.openclaw/workspace-<agent-id>/` for each agent defined in `config/office.json`. It copies the role-specific `AGENTS.md` when present and falls back to `templates/workspaces/default/` for shared files. Each workspace contains:
 - `SOUL.md` — personality/rules
 - `AGENTS.md` — role & scope
 - `IDENTITY.md` — name/role/emoji
@@ -59,8 +59,7 @@ Shared status is written to `~/.openclaw/shared/agents/<id>/STATUS.md` by runnin
 ### Configuration
 
 - **`config/office.json`** — active config (agents array, rooms grid, agentHomes positions, theme)
-- **`presets/`** — ready-made office layouts (tech-startup 13 agents, digital-agency 10, hotel 12)
-- **`templates/openclaw.config.json5`** — OpenClaw integration config template (merge into `~/.openclaw/openclaw.json`)
+- **`scripts/sync-openclaw-config.sh`** — OpenClaw integration sync; merges agents into `~/.openclaw/openclaw.json`
 
 ### Dashboard UI (`ui/dashboard/index.html`)
 

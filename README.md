@@ -2,19 +2,19 @@
 
 Create a multi-agent company workspace on OpenClaw with a lightweight office dashboard and role-based agent workflows.
 
-Use a preset or customize your own team by editing a single office config.
+Customize the active team by editing a single office config.
 
 ## Quick Start
 
 ```bash
-# Choose a preset, or create your own config
-cp presets/tech-startup.json config/office.json
+# Review or edit the active six-agent company config
+$EDITOR config/office.json
 
-# Create workspaces, shared status files, and dashboard data
+# Create workspaces, shared status files, dashboard data,
+# and merge company agents into ~/.openclaw/openclaw.json
 ./scripts/bootstrap.sh
 
-# Merge generated/openclaw-agents.json into ~/.openclaw/openclaw.json,
-# then restart OpenClaw gateway
+# Restart/recreate the OpenClaw gateway or container so it loads the new agents
 
 # Run the dashboard
 ./scripts/dashboard.sh
@@ -27,11 +27,7 @@ cp presets/tech-startup.json config/office.json
 
 ```
 ├── config/office.json          # office config (agents, rooms, homes)
-├── presets/                    # ready-made presets
-│   ├── tech-startup.json
-│   ├── digital-agency.json
-│   └── hotel.json
-├── templates/                  # workspace templates + openclaw config
+├── templates/                  # workspace templates
 ├── scripts/                    # bootstrap, dashboard, task scripts
 ├── ui/dashboard/               # office-style dashboard
 ├── shared/                     # shared data between agents
@@ -58,20 +54,15 @@ Agents can pass work to each other with:
 ./scripts/route-handoff.sh pm designer <workflow-id> "<handoff body>"
 ```
 
+`bootstrap.sh` runs `scripts/sync-openclaw-config.sh` automatically. Re-run that sync script after changing `config/office.json`; it updates OpenClaw config by agent id, backs up the previous config, enables agent-to-agent routing, syncs auth profiles from `main`, and validates the result.
+
 See [Automatic Routing](docs/agent-workflows/automatic-routing.md) for the full workflow.
 
 QA must use Playwright for browser-facing UI/E2E validation. See [Playwright QA Policy](docs/agent-workflows/playwright-qa-policy.md).
 
 `scripts/dashboard.sh` keeps dashboard data refreshed every 3 seconds by default. The Work modal includes an Activity tab that shows workflow starts, handoffs, and queued agent messages.
 
-## Presets
-
-- **Tech Startup** - CEO, CTO, Tech Lead, Frontend, Backend, PM, Designer
-- **Digital Agency** - Creative Director, Art Director, Copywriter, Media Planner, Account Manager, Social Manager
-- **Hotel** - General Manager, Front Desk, F&B Manager, Housekeeping Lead, Events Coordinator, Guest Relations
-
 ## Docs
 
 - [Getting Started](docs/getting-started.md)
 - [Adding Roles](docs/adding-roles.md)
-- [Presets Guide](docs/presets.md)

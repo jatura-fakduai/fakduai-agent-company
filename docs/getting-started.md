@@ -6,13 +6,9 @@
 
 ## Quick Start
 
-### 1. Choose a Preset
+### 1. Review the Active Company Config
 ```bash
-cp presets/tech-startup.json config/office.json
-# or
-cp presets/digital-agency.json config/office.json
-# or
-cp presets/hotel.json config/office.json
+$EDITOR config/office.json
 ```
 
 ### 2. Bootstrap Workspaces
@@ -24,6 +20,15 @@ The script creates:
 - One workspace per agent
 - Initial shared `STATUS.md` files
 - Dashboard data
+- OpenClaw agent entries and agent-to-agent routing in `~/.openclaw/openclaw.json`
+
+`bootstrap.sh` also runs:
+
+```bash
+./scripts/sync-openclaw-config.sh
+```
+
+The sync is safe to run again after editing `config/office.json`: it merges agents by id, backs up the previous OpenClaw config, enables `tools.sessions.visibility = "all"`, enables `tools.agentToAgent`, syncs auth/model profiles from `main`, and validates the config.
 
 ### 3. Open the Dashboard
 ```bash
@@ -42,14 +47,22 @@ Useful options:
 ./scripts/dashboard.sh --no-refresh
 ```
 
-### 4. Add Agents to OpenClaw
-Merge the generated config from `generated/openclaw-agents.json` into `~/.openclaw/openclaw.json`, then restart the gateway:
+### 4. Restart OpenClaw Gateway
+Restart or recreate the OpenClaw gateway/container so the running process loads the updated agent list:
 
 ```bash
 openclaw gateway restart
 ```
 
-The generated snippet includes the company agents, `tools.sessions.visibility = "all"`, and `tools.agentToAgent.allow` for `main` plus every configured company agent.
+If your gateway is running inside Docker/Compose and `openclaw gateway restart` reports that the service is disabled, restart the OpenClaw container from your host instead.
+
+If you want to review the generated config manually, run bootstrap with:
+
+```bash
+SKIP_OPENCLAW_SYNC=1 ./scripts/bootstrap.sh
+```
+
+Then inspect `generated/openclaw-agents.json` and run `./scripts/sync-openclaw-config.sh` when ready.
 
 ### 5. Start a Routed Workflow
 ```bash

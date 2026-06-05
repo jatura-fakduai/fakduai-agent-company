@@ -10,9 +10,14 @@ Workspace for {{NAME}}.
 
 ## Session Startup
 1. Read the runtime-provided context first.
-2. Check `STATUS.md` and today's memory notes if they are relevant to the task.
+2. Check `/data/.openclaw/shared/agents/{{ID}}/STATUS.md` and today's memory notes if they are relevant to the task.
 3. Identify the current objective, expected deliverable, blocker state, and next owner.
-4. Update `STATUS.md` whenever your state changes materially.
+4. Update `/data/.openclaw/shared/agents/{{ID}}/STATUS.md` whenever your state changes materially; this is the dashboard source of truth.
+
+## Status Reporting
+- The canonical dashboard status file is `/data/.openclaw/shared/agents/{{ID}}/STATUS.md`.
+- Keep `current status`, `current objective`, `active blocker`, `next action`, and `last meaningful output` accurate.
+- A workspace-local `STATUS.md` is only a private scratch note unless the task explicitly asks for it.
 
 ## Operating Principles
 - Plan before execution when the task has multiple steps, dependencies, or risk.
