@@ -46,6 +46,8 @@ Each routed handoff is saved to:
 
 The receiving agent gets a message with the workflow id, handoff file path, and expected next action.
 
+`send-task.sh` uses shared company slots so detached handoffs do not all enter `openclaw agent` at once. The default is `COMPANY_MAX_PARALLEL=2`; set `COMPANY_MAX_PARALLEL=1` for low-resource hosts.
+
 If the OpenClaw runtime does not yet have the target agent registered, `send-task.sh` queues the message under:
 
 ```text
@@ -63,7 +65,7 @@ PM -> Solution Designer -> Frontend + Backend -> QA -> Tech Lead
 Expected routing:
 
 - `pm` routes scope and plan to `designer`.
-- `designer` routes build-ready specs to `frontend` and `backend`.
+- `designer` routes build-ready specs to `frontend` and `backend`, respecting the company concurrency limit.
 - `frontend` and `backend` route implementation evidence to `qa`.
 - `qa` validates browser-facing flows with Playwright and routes pass/fail release evidence to `techlead`.
 - `qa` may route reproducible bugs directly back to `frontend` or `backend`.

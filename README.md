@@ -42,6 +42,8 @@ The primary delivery sequence is:
 PM -> Solution Designer -> Frontend + Backend -> QA -> Tech Lead
 ```
 
+Agent sends are throttled by default with `COMPANY_MAX_PARALLEL=2` so a routed workflow cannot launch every role at once and peg local CPU. Use `COMPANY_MAX_PARALLEL=1` on smaller hosts.
+
 Start with:
 
 ```bash

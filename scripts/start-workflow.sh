@@ -42,6 +42,7 @@ PM -> Solution Designer -> Frontend + Backend -> QA -> Tech Lead
 - Frontend and Backend implement their slices and provide evidence.
 - QA validates acceptance criteria and files reproducible bugs when needed.
 - Tech Lead reviews evidence and approves, conditionally approves, or blocks release.
+- Respect company send concurrency. Default COMPANY_MAX_PARALLEL=2; use sequential routing when a host is resource constrained.
 
 ## Created
 $(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -82,6 +83,7 @@ Your job:
 5. Update STATUS.md with the workflow id, current state, next action, and blocker if any.
 
 Use the standard HANDOFF format. Do not wait silently if information is missing; identify the missing input and route/escalate it.
+Do not fan out to every role at once. The company routing scripts throttle sends with COMPANY_MAX_PARALLEL, which defaults to 2.
 EOF
 )"
 

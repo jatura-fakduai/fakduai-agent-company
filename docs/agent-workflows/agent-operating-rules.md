@@ -14,6 +14,8 @@ This is the main sequence. Agents may communicate across steps when that removes
 - Dev is blocked -> route a focused question to Solution Designer or Tech Lead.
 - Any unresolved blocker -> escalate to PM.
 
+Parallel routing must respect the company send throttle. Default to at most two active role-agent sends (`COMPANY_MAX_PARALLEL=2`), and prefer one on constrained hosts.
+
 ## 1. Shared Contract, Different Specialties
 
 All roles share the same collaboration rules:
@@ -129,3 +131,4 @@ started -> blocked -> handoff sent -> artifact saved -> review requested -> done
 - QA approving browser-facing work without Playwright evidence or a documented Tech Lead exception.
 - Role overlap where everyone waits for someone else.
 - Tech Lead review becoming a bottleneck.
+- Fan-out to every role at once without dependency or capacity control.

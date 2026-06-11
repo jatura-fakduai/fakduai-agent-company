@@ -9,6 +9,7 @@ PM -> Solution Designer -> Frontend + Backend -> QA -> Tech Lead -> Deploy
 ```
 
 This is the main sequence only. Agents may communicate across steps when that removes delay.
+When a handoff targets multiple roles, route no more than the configured company concurrency allows. The default is `COMPANY_MAX_PARALLEL=2`; use `COMPANY_MAX_PARALLEL=1` on small hosts.
 
 ## Required Format
 
@@ -98,7 +99,7 @@ Developers can start without guessing behavior or contracts.
 Implement the login flow according to the approved spec.
 
 ## Why Now
-The spec is ready and both implementation slices can start in parallel.
+The spec is ready and both implementation slices can start under the company concurrency limit.
 
 ## Exact Target
 - Frontend: login page UI, form validation, token storage

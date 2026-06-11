@@ -73,10 +73,20 @@ This sends the objective to PM and creates a shared workflow folder under `~/.op
 
 Workflow starts, routed handoffs, and queued agent messages appear in the dashboard Work modal under the Activity tab.
 
+Company agent sends are throttled by default so a PM fan-out cannot start every role at once and saturate CPU:
+
+```bash
+COMPANY_MAX_PARALLEL=2 ./scripts/start-workflow.sh "Build the customer login flow"
+```
+
+Set `COMPANY_MAX_PARALLEL=1` for low-resource hosts, or `0` to disable the guard.
+
 ### 6. Route a Handoff Manually
 ```bash
 ./scripts/route-handoff.sh pm designer <workflow-id> "<handoff body>"
 ```
+
+Detached delivery remains enabled by default, but `scripts/send-task.sh` enforces the shared concurrency slots.
 
 ### 7. Auto-refresh Dashboard
 ```bash

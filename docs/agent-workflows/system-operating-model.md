@@ -11,7 +11,9 @@ Project Manager
   -> Release / Deploy
 ```
 
-The sequence above is the main delivery path. Agents may still talk directly when it removes delay:
+The sequence above is the main delivery path. Parallel work is allowed, but it must respect the company send throttle. On small hosts, prefer one active role at a time; on larger hosts, use at most two active role agents unless a human explicitly raises `COMPANY_MAX_PARALLEL`.
+
+Agents may still talk directly when it removes delay:
 
 - QA finds a bug -> route it directly to Frontend or Backend.
 - Frontend needs UX clarification -> route it to Solution Designer.
@@ -26,6 +28,8 @@ Use the routing scripts when a task should move between agents without human rel
 ./scripts/start-workflow.sh "Build the customer login flow"
 ./scripts/route-handoff.sh pm designer <workflow-id> "<handoff>"
 ```
+
+The routing layer uses `scripts/send-task.sh`, which defaults to `COMPANY_MAX_PARALLEL=2`. This prevents a PM handoff burst from launching every role agent at once and driving local CPU to 100%. Set `COMPANY_MAX_PARALLEL=1` for constrained machines.
 
 Workflow state is stored under:
 
@@ -118,3 +122,4 @@ PM must track owner, dependency, and stale status. During active projects, PM sh
 - QA approving browser-facing work without Playwright evidence or a documented Tech Lead exception.
 - Requiring the user to manually chase every role.
 - Tech Lead review becoming a bottleneck.
+- Fan-out to every role at once without a concrete dependency reason.

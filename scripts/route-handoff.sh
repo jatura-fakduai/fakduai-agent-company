@@ -6,6 +6,10 @@ set -euo pipefail
 # Usage:
 #   ./scripts/route-handoff.sh <from-agent> <to-agent> <workflow-id> "<handoff>"
 #   printf "handoff" | ./scripts/route-handoff.sh <from-agent> <to-agent> <workflow-id>
+#
+# Delivery is detached by default so the sending agent can continue, but
+# scripts/send-task.sh enforces COMPANY_MAX_PARALLEL to avoid CPU spikes when
+# one role fans out to several agents.
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 WORKFLOW_ROOT="${WORKFLOW_ROOT:-$HOME/.openclaw/shared/company-workflows}"

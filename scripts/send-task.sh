@@ -5,6 +5,12 @@ set -euo pipefail
 # Usage:
 #   ./scripts/send-task.sh <agent-id> "<message>"
 #   printf "message" | ./scripts/send-task.sh <agent-id>
+#
+# Runtime safety knobs:
+#   COMPANY_MAX_PARALLEL=2      Maximum concurrent company agent sends.
+#   COMPANY_SLOT_WAIT=900       Seconds to wait for a free send slot.
+#   COMPANY_LOCK_ROOT=...       Directory for cross-process send slots.
+#   AGENT_TIMEOUT=300           Per-agent OpenClaw timeout.
 
 AGENT="${1:?Usage: send-task.sh <agent-id> '<message>'}"
 
@@ -26,7 +32,70 @@ if [ "${DRY_RUN:-0}" = "1" ]; then
   exit 0
 fi
 
-AGENT_TIMEOUT="${AGENT_TIMEOUT:-600}"
+COMPANY_MAX_PARALLEL="${COMPANY_MAX_PARALLEL:-2}"
+COMPANY_SLOT_WAIT="${COMPANY_SLOT_WAIT:-900}"
+COMPANY_LOCK_ROOT="${COMPANY_LOCK_ROOT:-$HOME/.openclaw/shared/company-agent-slots}"
+COMPANY_SLOT=""
+
+release_slot() {
+  if [ -n "$COMPANY_SLOT" ] && [ -d "$COMPANY_SLOT" ]; then
+    rm -rf "$COMPANY_SLOT"
+  fi
+}
+
+acquire_slot() {
+  if [ "$COMPANY_MAX_PARALLEL" = "0" ]; then
+    return 0
+  fi
+
+  mkdir -p "$COMPANY_LOCK_ROOT"
+  local deadline now slot pid_file pid started
+  now="$(date +%s)"
+  deadline=$((now + COMPANY_SLOT_WAIT))
+
+  while :; do
+    slot=1
+    while [ "$slot" -le "$COMPANY_MAX_PARALLEL" ]; do
+      COMPANY_SLOT="$COMPANY_LOCK_ROOT/slot-$slot"
+      if mkdir "$COMPANY_SLOT" 2>/dev/null; then
+        {
+          echo "pid=$$"
+          echo "agent=$AGENT"
+          echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        } >"$COMPANY_SLOT/owner"
+        trap release_slot EXIT INT TERM
+        echo "Acquired company agent slot $slot/$COMPANY_MAX_PARALLEL"
+        return 0
+      fi
+
+      pid_file="$COMPANY_SLOT/owner"
+      pid=""
+      started=""
+      if [ -f "$pid_file" ]; then
+        pid="$(sed -n 's/^pid=//p' "$pid_file" | head -n 1)"
+        started="$(sed -n 's/^started_at=//p' "$pid_file" | head -n 1)"
+      fi
+      if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+        echo "Reclaiming stale company agent slot $slot from pid $pid ($started)" >&2
+        rm -rf "$COMPANY_SLOT"
+        continue
+      fi
+
+      slot=$((slot + 1))
+    done
+
+    now="$(date +%s)"
+    if [ "$now" -ge "$deadline" ]; then
+      echo "ERROR: timed out waiting for company agent slot after ${COMPANY_SLOT_WAIT}s" >&2
+      exit 1
+    fi
+    sleep 2
+  done
+}
+
+acquire_slot
+
+AGENT_TIMEOUT="${AGENT_TIMEOUT:-300}"
 if [ -z "${GATEWAY_TIMEOUT:-}" ]; then
   if [ "$AGENT_TIMEOUT" = "0" ]; then
     GATEWAY_TIMEOUT=0
