@@ -13,6 +13,7 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 PORT="${PORT:-8090}"
 REFRESH_INTERVAL="${REFRESH_INTERVAL:-1}"
 AUTO_REFRESH="${AUTO_REFRESH:-1}"
+STALE_AFTER_SECONDS="${STALE_AFTER_SECONDS:-10}"
 
 # Hard-coded canonical fallback — always valid inside the sandbox
 _CANONICAL_ROOT="/home/node/.openclaw"
@@ -93,6 +94,9 @@ sync_static_ui() {
     mkdir -p "$SERVE_DIR/assets"
     cp -a ui/dashboard/assets/. "$SERVE_DIR/assets/" 2>/dev/null || true
   fi
+  if [ -f ui/dashboard/data/app-version.json ]; then
+    cp -a ui/dashboard/data/app-version.json "$SERVE_DIR/data/app-version.json" 2>/dev/null || true
+  fi
 }
 
 # Helper: generate and copy data to serve dir atomically
@@ -102,7 +106,7 @@ generate_and_sync() {
   mkdir -p "$BUILD_DIR/data"
   DASHBOARD_DATA_DIR="$BUILD_DIR/data" bash scripts/generate-dashboard.sh "$@"
   # Copy generated JSON to /tmp serve dir atomically
-  for f in agents.json activity.json kanban.json artifacts.json; do
+  for f in agents.json activity.json kanban.json artifacts.json token-usage.json; do
     src="$BUILD_DIR/data/$f"
     if [ -f "$src" ]; then
       # Read from Python (same process) to avoid fakeowner read cache, write to /tmp
@@ -133,6 +137,11 @@ with open('$SERVE_DIR/data/$f', 'w') as fh:
     rm -rf "$SERVE_DIR/data/agent-files" 2>/dev/null || true
     cp -a "$BUILD_DIR/data/agent-files" "$SERVE_DIR/data/" 2>/dev/null || true
   fi
+  python3 -c "
+import json, time
+with open('$SERVE_DIR/data/refresh-status.json', 'w') as fh:
+    json.dump({'ok': True, 'refreshedAtEpoch': time.time(), 'refreshedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}, fh, indent=2)
+"
 }
 
 echo "==> Generating dashboard data"
@@ -147,9 +156,88 @@ if [ "$AUTO_REFRESH" = "1" ]; then
   echo "==> Auto-refreshing dashboard data every ${REFRESH_INTERVAL}s"
   (while true; do generate_and_sync > "$SERVE_DIR/data/refresh.log" 2>&1; sleep "$REFRESH_INTERVAL"; done) &
   REFRESH_PID=$!
-  trap 'kill "$REFRESH_PID" 2>/dev/null || true' EXIT INT TERM
+  (
+    while true; do
+      sleep "$STALE_AFTER_SECONDS"
+      if ! kill -0 "$REFRESH_PID" 2>/dev/null; then
+        echo "dashboard refresh loop exited; stopping server for restart" >&2
+        kill "$$" 2>/dev/null || true
+        exit 1
+      fi
+      if [ -f "$SERVE_DIR/data/refresh-status.json" ]; then
+        age=$(python3 -c "import os,time; print(int(time.time()-os.path.getmtime('$SERVE_DIR/data/refresh-status.json')))")
+        if [ "$age" -gt "$STALE_AFTER_SECONDS" ]; then
+          echo "dashboard refresh data is stale (${age}s); stopping server for restart" >&2
+          kill "$$" 2>/dev/null || true
+          exit 1
+        fi
+      fi
+    done
+  ) &
+  WATCHDOG_PID=$!
+  trap 'kill "$REFRESH_PID" "$WATCHDOG_PID" 2>/dev/null || true' EXIT INT TERM
 fi
 
 echo "==> Dashboard: http://127.0.0.1:$PORT  (served from $SERVE_DIR)"
 cd "$SERVE_DIR"
-exec python3 -m http.server "$PORT"
+python3 - "$PORT" "$STALE_AFTER_SECONDS" <<'PY' &
+import http.server
+import json
+import os
+import socketserver
+import sys
+import time
+from pathlib import Path
+
+port = int(sys.argv[1])
+stale_after = int(sys.argv[2])
+
+class DashboardHandler(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
+        super().end_headers()
+
+    def do_GET(self):
+        if self.path.split('?', 1)[0] == '/healthz':
+            self.send_dashboard_health()
+            return
+        super().do_GET()
+
+    def send_dashboard_health(self):
+        data_path = Path('data/agents.json')
+        status_path = Path('data/refresh-status.json')
+        now = time.time()
+        payload = {'ok': False, 'stale': True, 'ageSeconds': None}
+        status = 503
+        try:
+            source = status_path if status_path.exists() else data_path
+            age = max(0, int(now - source.stat().st_mtime))
+            payload.update({
+                'ok': age <= stale_after and data_path.exists(),
+                'stale': age > stale_after,
+                'ageSeconds': age,
+                'dataMtime': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(data_path.stat().st_mtime)) if data_path.exists() else None,
+            })
+            if payload['ok']:
+                status = 200
+        except Exception as exc:
+            payload['error'] = str(exc)
+        body = json.dumps(payload, indent=2).encode()
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+with socketserver.TCPServer(('', port), DashboardHandler) as httpd:
+    httpd.serve_forever()
+PY
+SERVER_PID=$!
+if [ "$AUTO_REFRESH" = "1" ]; then
+  trap 'kill "$REFRESH_PID" "$WATCHDOG_PID" "$SERVER_PID" 2>/dev/null || true' EXIT INT TERM
+else
+  trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT INT TERM
+fi
+wait "$SERVER_PID"

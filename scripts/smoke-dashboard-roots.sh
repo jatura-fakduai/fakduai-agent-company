@@ -7,7 +7,15 @@ set -euo pipefail
 # still resolve to the canonical runtime shared data under /home/node/.openclaw.
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-CANONICAL_ROOT="${CANONICAL_ROOT:-/home/node/.openclaw}"
+if [ -z "${CANONICAL_ROOT:-}" ]; then
+  if [ -d "/data/.openclaw/shared/agents" ]; then
+    CANONICAL_ROOT="/data/.openclaw"
+  elif [ -d "/home/node/.openclaw/shared/agents" ]; then
+    CANONICAL_ROOT="/home/node/.openclaw"
+  else
+    CANONICAL_ROOT="${HOME:-/data}/.openclaw"
+  fi
+fi
 BAD_ROOT="${BAD_ROOT:-${HOME:-/tmp}/.openclaw-stale}"
 OUT_DIR="$REPO_ROOT/ui/dashboard/data"
 SERVE_DIR="/tmp/openclaw-dashboard"
@@ -46,6 +54,7 @@ for name, path in files.items():
 agents = json.loads(files["agents"].read_text(encoding="utf-8"))
 kanban = json.loads(files["kanban"].read_text(encoding="utf-8"))
 activity = json.loads(files["activity"].read_text(encoding="utf-8"))
+required = {"pm", "designer", "frontend", "backend", "qa", "techlead"}
 
 checks = [
     ("agents", len(agents.get("agents", []))),
@@ -55,6 +64,15 @@ checks = [
 for name, count in checks:
     if count <= 0:
         raise SystemExit(f"{label}: expected non-empty {name}, got {count}")
+
+agent_ids = {item.get("id") for item in agents.get("agents", [])}
+card_ids = {item.get("ownerId") or item.get("id") for item in kanban.get("cards", [])}
+missing_agents = sorted(required - agent_ids)
+missing_cards = sorted(required - card_ids)
+if missing_agents:
+    raise SystemExit(f"{label}: missing required agents: {', '.join(missing_agents)}")
+if missing_cards:
+    raise SystemExit(f"{label}: missing required kanban cards: {', '.join(missing_cards)}")
 
 for name, payload in (("agents", agents), ("kanban", kanban), ("activity", activity)):
     roots = payload.get("meta", {}).get("sourceRoots", {})

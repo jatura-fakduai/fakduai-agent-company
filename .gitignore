@@ -53,6 +53,7 @@ ui/dashboard/data/agents.json
 ui/dashboard/data/kanban.json
 ui/dashboard/data/activity.json
 ui/dashboard/data/artifacts.json
+ui/dashboard/data/token-usage.json
 ui/dashboard/data/branding.json
 ui/dashboard/data/docs/
 ui/dashboard/data/agent-files/

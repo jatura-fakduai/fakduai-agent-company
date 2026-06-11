@@ -170,6 +170,10 @@ def normalize_status(v):
     v = v.strip().lower().strip('`*_ -')
     if 'no-design-blocker' in v or 'no blocker' in v or 'no-blocker' in v or 'unblocked' in v:
         return 'idle'
+    if v.startswith('waiting_on_'):
+        return 'working'
+    if v.startswith('waiting for ') or v.startswith('waiting on ') or v.startswith('waiting_'):
+        return 'idle'
     if 'block' in v or 'stuck' in v: return 'blocked'
     if 'done' in v or 'complete' in v or 'approved' in v or 'pass' in v: return 'done'
     if 'work' in v or 'progress' in v or 'doing' in v or 'active' in v: return 'working'
@@ -258,15 +262,31 @@ def infer_status(text):
                 return normalize_status(' '.join(vals))
     return 'idle'
 
+def status_file_for(slug):
+    workspace_status = Path(f'/data/.openclaw/workspace-{slug}/STATUS.md')
+    shared_status = Path(shared_root) / slug / 'STATUS.md'
+    candidates = [p for p in (shared_status, workspace_status) if p.exists()]
+    if not candidates:
+        return workspace_status
+
+    def score(path):
+        try:
+            body = path.read_text(encoding='utf-8')
+            canonical = 1 if re.search(r'current\s+status\s*:', body, re.IGNORECASE) else 0
+            refreshed = 1 if re.search(r'refreshed_at\s*:', body, re.IGNORECASE) else 0
+            return (canonical + refreshed, path.stat().st_mtime)
+        except Exception:
+            return (0, 0)
+
+    return max(candidates, key=score)
+
 items = []
 for slug, acfg in agents_config.items():
-    workspace_status = f'/data/.openclaw/workspace-{slug}/STATUS.md'
-    shared_status = os.path.join(shared_root, slug, 'STATUS.md')
-    status_file = workspace_status if os.path.exists(workspace_status) else shared_status
+    status_file = status_file_for(slug)
     home = agent_homes.get(slug, {'x': 10, 'y': 10})
 
-    if os.path.exists(status_file):
-        text = open(status_file, 'r', encoding='utf-8').read()
+    if status_file.exists():
+        text = status_file.read_text(encoding='utf-8')
         status = infer_status(text)
         objective = pick_field(text, 'current objective', pick_field(text, 'initiative', pick_field(text, 'task', pick_field(text, 'Current Objective', 'Waiting for next task'))))
         next_action = pick_field(text, 'next action', pick_field(text, 'Next Action', ''))
@@ -275,13 +295,14 @@ for slug, acfg in agents_config.items():
         if m:
             updated = m.group(1).strip()
         else:
-            updated = mtime_iso(status_file)
+            updated = path_mtime_iso(status_file)
 
         obj_lower = objective.lower()
         out_lower = last_output.lower()
         combo = obj_lower + ' ' + out_lower
         location = 'desk'
-        if 'meeting' in combo and 'review' not in combo and 'spec' not in combo:
+        active_status = status in ('working', 'blocked')
+        if active_status and re.search(r'\b(location|room|join|joins|joined|at)\s*[:=-]?\s*meeting\b|\bin\s+(the\s+)?meeting\b', combo) and 'review' not in combo and 'spec' not in combo and 'dashboard' not in combo:
             location = 'meeting'
         elif 'coffee' in combo or 'lounge' in combo:
             location = 'lounge'
@@ -377,12 +398,10 @@ weak_output_markers = {
 }
 for slug, acfg in agents_config.items():
     workspace_dir = str(workspace_dir_for(slug))
-    workspace_status = f'{workspace_dir}/STATUS.md'
-    shared_status = os.path.join(shared_root, slug, 'STATUS.md')
-    status_file = workspace_status if os.path.exists(workspace_status) else shared_status
-    if not os.path.exists(status_file):
+    status_file = status_file_for(slug)
+    if not status_file.exists():
         continue
-    text = open(status_file, 'r', encoding='utf-8').read()
+    text = status_file.read_text(encoding='utf-8')
 
     task = (parse_kv(text, 'Task') or
             parse_kv(text, 'Current Task') or
@@ -458,7 +477,7 @@ for slug, acfg in agents_config.items():
         warnings.append({'type': 'missing-next', 'label': 'Working without next action'})
 
     try:
-        age_minutes = int((utc_now() - datetime.datetime.fromtimestamp(os.path.getmtime(status_file), datetime.timezone.utc)).total_seconds() // 60)
+        age_minutes = int((utc_now() - datetime.datetime.fromtimestamp(status_file.stat().st_mtime, datetime.timezone.utc)).total_seconds() // 60)
     except Exception:
         age_minutes = None
 
@@ -645,7 +664,7 @@ for slug, acfg in agents_config.items():
             'ownerNotes': [x.strip('- ').strip() for x in owner_notes.split('\n') if x.strip()][:8],
         },
         'role': acfg.get('role', ''),
-        'updatedAt': mtime_iso(status_file),
+        'updatedAt': path_mtime_iso(status_file),
         'ageMinutes': age_minutes,
         'screenshots': screenshots,
         'videos': videos,
@@ -668,6 +687,58 @@ for slug, acfg in agents_config.items():
     if slug == 'ceo':
         aliases.update({'human'})
     role_aliases[slug] = {a for a in aliases if a}
+
+existing_card_ids = {c.get('id') for c in cards}
+for slug, acfg in agents_config.items():
+    if slug in existing_card_ids:
+        continue
+    cards.append({
+        'id': slug,
+        'workItem': 'none',
+        'title': 'No STATUS.md available - agent remains on roster',
+        'owner': acfg.get('name', slug),
+        'ownerId': slug,
+        'emoji': acfg.get('emoji', '🤖'),
+        'color': acfg.get('color', '#999'),
+        'status': 'offline',
+        'stage': 'todo',
+        'plan': '',
+        'nextAction': 'PM must restore or refresh the agent STATUS.md',
+        'lastOutput': 'No status file found during dashboard generation.',
+        'blocker': {
+            'isBlocked': True,
+            'owner': 'PM',
+            'missingInput': f'{slug} STATUS.md',
+            'nextAction': 'PM must restore or refresh the agent STATUS.md',
+        },
+        'stale': {
+            'level': 'stale',
+            'ageMinutes': None,
+            'reason': 'missing STATUS.md',
+        },
+        'evidenceLinks': [
+            {
+                'label': 'Status',
+                'href': f'data/artifacts/{slug}/STATUS.md',
+            }
+        ],
+        'collaboration': '',
+        'details': {
+            'deliverables': [],
+            'blockers': [f'{slug} STATUS.md missing'],
+            'acceptanceCriteria': [],
+            'ownerNotes': [],
+        },
+        'role': acfg.get('role', ''),
+        'updatedAt': generated_at,
+        'ageMinutes': None,
+        'screenshots': [],
+        'videos': [],
+        'pmTasks': None,
+        'warnings': [{'type': 'missing-status', 'label': 'Agent STATUS.md missing'}],
+        'escalation': {'score': 60, 'owner': 'PM', 'level': 'medium'},
+        'requiredAction': f'PM must restore or refresh {slug} STATUS.md',
+    })
 
 for card in cards:
     text_blob = ' '.join([card.get('collaboration', ''), card.get('nextAction', ''), card.get('lastOutput', '')]).lower()
@@ -786,6 +857,10 @@ role_patterns = {
     'pm': [
         ('PM_TASKS.md', 'execution-plan'),
         ('STATUS.md', 'status'),
+        ('screenshots/*.png', 'evidence-image'),
+        ('screenshots/*.jpg', 'evidence-image'),
+        ('screenshots/*.jpeg', 'evidence-image'),
+        ('screenshots/*.webp', 'evidence-image'),
     ],
     'cto': [
         ('STATUS.md', 'solution-summary'),
@@ -1088,4 +1163,127 @@ with open(activity_file, 'w', encoding='utf-8') as f:
         ),
     }, f, ensure_ascii=False, indent=2)
 print(f'Wrote {activity_file} ({len(activities[:200])} activities, {len(workflows[:50])} workflows)')
+
+# ---- Generate token-usage.json from Codex session token telemetry ----
+def empty_usage():
+    return {
+        'inputTokens': 0,
+        'cachedInputTokens': 0,
+        'outputTokens': 0,
+        'reasoningOutputTokens': 0,
+        'totalTokens': 0,
+        'sessions': 0,
+    }
+
+def add_usage(target, usage):
+    target['inputTokens'] += int(usage.get('input_tokens') or 0)
+    target['cachedInputTokens'] += int(usage.get('cached_input_tokens') or 0)
+    target['outputTokens'] += int(usage.get('output_tokens') or 0)
+    target['reasoningOutputTokens'] += int(usage.get('reasoning_output_tokens') or 0)
+    target['totalTokens'] += int(usage.get('total_tokens') or 0)
+    target['sessions'] += 1
+
+def parse_session_usage(path):
+    provider = 'openai'
+    model = ''
+    session_id = path.stem
+    last_ts = ''
+    last_usage = None
+    context_window = None
+    try:
+        with path.open(encoding='utf-8', errors='ignore') as fh:
+            for line in fh:
+                try:
+                    item = json.loads(line)
+                except Exception:
+                    continue
+                typ = item.get('type')
+                payload = item.get('payload') if isinstance(item.get('payload'), dict) else {}
+                if typ == 'session_meta':
+                    provider = payload.get('model_provider') or provider
+                    model = payload.get('model') or payload.get('effective_model') or model
+                    session_id = payload.get('id') or session_id
+                if typ == 'event_msg' and payload.get('type') == 'token_count':
+                    info = payload.get('info') if isinstance(payload.get('info'), dict) else {}
+                    usage = info.get('total_token_usage') if isinstance(info.get('total_token_usage'), dict) else None
+                    if usage:
+                        last_usage = usage
+                        context_window = info.get('model_context_window') or context_window
+                        last_ts = item.get('timestamp') or last_ts
+    except Exception:
+        return None
+    if not last_usage:
+        return None
+    model_key = f"{provider}/{model or 'default'}"
+    return {
+        'sessionId': session_id,
+        'model': model_key,
+        'provider': provider,
+        'lastSeen': last_ts or path_mtime_iso(path),
+        'contextWindow': context_window,
+        'usage': last_usage,
+    }
+
+token_agents = []
+models_map = {}
+totals = empty_usage()
+for slug, acfg in agents_config.items():
+    agent_root = state_root / 'agents' / slug
+    sessions_root = agent_root / 'agent' / 'codex-home' / 'sessions'
+    if not sessions_root.exists():
+        sessions_root = agent_root / 'sessions'
+    session_files = sorted(sessions_root.glob('**/*.jsonl'), key=lambda p: p.stat().st_mtime, reverse=True)[:80] if sessions_root.exists() else []
+    agent_total = empty_usage()
+    agent_models = {}
+    last_seen = ''
+    context_windows = {}
+    for session_file in session_files:
+        parsed = parse_session_usage(session_file)
+        if not parsed:
+            continue
+        usage = parsed['usage']
+        model_key = parsed['model']
+        if model_key not in agent_models:
+            agent_models[model_key] = empty_usage()
+        if model_key not in models_map:
+            models_map[model_key] = empty_usage()
+        add_usage(agent_total, usage)
+        add_usage(agent_models[model_key], usage)
+        add_usage(models_map[model_key], usage)
+        add_usage(totals, usage)
+        if parsed.get('contextWindow'):
+            context_windows[model_key] = parsed.get('contextWindow')
+        if parsed['lastSeen'] > last_seen:
+            last_seen = parsed['lastSeen']
+    token_agents.append({
+        'id': slug,
+        'name': acfg.get('name', slug),
+        'emoji': acfg.get('emoji', ''),
+        'totalTokens': agent_total['totalTokens'],
+        'inputTokens': agent_total['inputTokens'],
+        'cachedInputTokens': agent_total['cachedInputTokens'],
+        'outputTokens': agent_total['outputTokens'],
+        'reasoningOutputTokens': agent_total['reasoningOutputTokens'],
+        'sessions': agent_total['sessions'],
+        'lastSeen': last_seen,
+        'models': [
+            dict({'model': model_key, 'contextWindow': context_windows.get(model_key)}, **usage)
+            for model_key, usage in sorted(agent_models.items(), key=lambda kv: kv[1]['totalTokens'], reverse=True)
+        ],
+    })
+
+token_models = [
+    dict({'model': model_key}, **usage)
+    for model_key, usage in sorted(models_map.items(), key=lambda kv: kv[1]['totalTokens'], reverse=True)
+]
+token_file = str(Path(out_dir) / 'token-usage.json')
+with open(token_file, 'w', encoding='utf-8') as f:
+    json.dump({
+        'agents': sorted(token_agents, key=lambda a: a.get('totalTokens', 0), reverse=True),
+        'models': token_models,
+        'totals': totals,
+        'updated': generated_at,
+        'meta': generated_meta(sourceStatus='ok', sessionFileLimitPerAgent=80),
+    }, f, ensure_ascii=False, indent=2)
+print(f'Wrote {token_file} ({len(token_agents)} agents, {len(token_models)} models)')
 PY
