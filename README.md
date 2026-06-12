@@ -64,6 +64,13 @@ All routed work must follow the [Agent Execution Control Policy](docs/agent-work
 
 Routing a handoff does not count as active work. `route-handoff.sh` records delivery states (`delivering`, then `delivered_waiting_for_receiver`) and the receiving agent must write its own evidence-based `working` status. Empty delivery logs or missing receiver acknowledgement should be treated as delivery/control-plane failures, not progress.
 
+Use [Ops Monitor](docs/agent-workflows/ops-monitor.md) for compact stale/delivery checks instead of making PM poll large logs:
+
+```bash
+./scripts/monitor-workflows.sh
+./scripts/monitor-workflows.sh --apply
+```
+
 QA must use Playwright for browser-facing UI/E2E validation. See [Playwright QA Policy](docs/agent-workflows/playwright-qa-policy.md).
 
 `scripts/dashboard.sh` keeps dashboard data refreshed every 3 seconds by default. The Work modal includes an Activity tab that shows workflow starts, handoffs, and queued agent messages.
@@ -72,3 +79,4 @@ QA must use Playwright for browser-facing UI/E2E validation. See [Playwright QA 
 
 - [Getting Started](docs/getting-started.md)
 - [Adding Roles](docs/adding-roles.md)
+- [Ops Monitor](docs/agent-workflows/ops-monitor.md)

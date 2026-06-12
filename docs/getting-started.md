@@ -88,7 +88,30 @@ Set `COMPANY_MAX_PARALLEL=1` for low-resource hosts, or `0` to disable the guard
 
 Detached delivery remains enabled by default, but `scripts/send-task.sh` enforces the shared concurrency slots.
 
-### 7. Auto-refresh Dashboard
+After routing, check delivery/control-plane health without reading large logs:
+
+```bash
+./scripts/monitor-workflows.sh --workflow <workflow-id>
+```
+
+Apply stale delivery markers when needed:
+
+```bash
+./scripts/monitor-workflows.sh --workflow <workflow-id> --apply
+```
+
+### 7. Post-clone Smoke
+Run these after a fresh clone/bootstrap:
+
+```bash
+bash -n scripts/*.sh
+DASHBOARD_DATA_DIR=/tmp/openclaw-dashboard-smoke bash scripts/generate-dashboard.sh
+./scripts/monitor-workflows.sh
+```
+
+`route-handoff.sh` should set receivers to `delivering` / `delivered_waiting_for_receiver`, not `working`. `working` is reserved for the receiver's own evidence-based acknowledgement.
+
+### 8. Auto-refresh Dashboard
 ```bash
 ./scripts/auto-refresh.sh 3
 ```

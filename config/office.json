@@ -6,7 +6,8 @@
     {"id": "frontend",    "name": "Frontend Engineer",   "emoji": "🎨", "role": "Builds user interfaces, client-side state, accessibility, frontend tests, and API integration.", "color": "#FFD93D", "hair": "ponytail", "hairColor": "#5a3a1a", "shirt": "#FFD93D", "pants": "#3a3a5a"},
     {"id": "backend",     "name": "Backend Engineer",    "emoji": "⚙️", "role": "Builds APIs, data models, business logic, integrations, validation, and backend tests.", "color": "#6BCB77", "hair": "short",    "hairColor": "#1a2a3a", "shirt": "#6BCB77", "pants": "#2a2a4a"},
     {"id": "qa",          "name": "QA Engineer",         "emoji": "🧪", "role": "Validates requirements through reproducible tests, evidence, bug reports, and release readiness checks.", "color": "#E056A0", "hair": "bun",      "hairColor": "#4a2a4a", "shirt": "#E056A0", "pants": "#3a3a5a"},
-    {"id": "techlead",    "name": "Tech Lead",           "emoji": "⚡", "role": "Owns technical standards, architecture decisions, code review, risk control, and deploy approval.", "color": "#45B7D1", "hair": "neat",     "hairColor": "#1a2a3a", "shirt": "#45B7D1", "pants": "#2a2a4a", "accessory": "glasses"}
+    {"id": "techlead",    "name": "Tech Lead",           "emoji": "⚡", "role": "Owns technical standards, architecture decisions, code review, risk control, and deploy approval.", "color": "#45B7D1", "hair": "neat",     "hairColor": "#1a2a3a", "shirt": "#45B7D1", "pants": "#2a2a4a", "accessory": "glasses"},
+    {"id": "ops",         "name": "Ops Monitor",         "emoji": "📡", "role": "Monitors delivery state, stale work, heartbeat gaps, and token-heavy polling so PM receives compact escalation summaries.", "color": "#A78BFA", "hair": "short", "hairColor": "#2a2140", "shirt": "#A78BFA", "pants": "#2a2a4a", "accessory": "glasses"}
   ],
   "rooms": [
     {"id": "reception",       "label": "📋 PM",          "x": 1,  "y": 1, "w": 5, "h": 4, "color": "rgba(221,160,221,0.10)", "type": "reception"},
@@ -21,6 +22,7 @@
     "frontend": {"x": 13,   "y": 3},
     "backend":  {"x": 15.5, "y": 3},
     "qa":       {"x": 13,   "y": 4.5},
-    "techlead": {"x": 15.5, "y": 4.5}
+    "techlead": {"x": 15.5, "y": 4.5},
+    "ops":      {"x": 5.0,  "y": 8.7}
   }
 }
