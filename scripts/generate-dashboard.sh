@@ -172,6 +172,12 @@ def stale_summary(updated, status):
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.timezone.utc)
     age_minutes = max(0, int((utc_now() - dt.astimezone(datetime.timezone.utc)).total_seconds() // 60))
+    if status == 'delivery_failed':
+        return {'level': 'stale', 'ageMinutes': age_minutes, 'reason': 'delivery failed; retry or reassign'}
+    if status == 'delivered_waiting_for_receiver' and age_minutes >= 5:
+        return {'level': 'stale', 'ageMinutes': age_minutes, 'reason': f'no receiver acknowledgement for {age_minutes}m'}
+    if status == 'delivering' and age_minutes >= 3:
+        return {'level': 'stale', 'ageMinutes': age_minutes, 'reason': f'delivery not confirmed for {age_minutes}m'}
     if status == 'blocked' and age_minutes >= 15:
         return {'level': 'stale', 'ageMinutes': age_minutes, 'reason': f'not refreshed for {age_minutes}m'}
     if status == 'working' and age_minutes >= 60:
@@ -229,6 +235,16 @@ def pick_field(text, field, fallback):
 
 def normalize_status(v):
     v = v.strip().lower().strip('`*_ -')
+    if v in ('queued', 'delivering', 'delivered_waiting_for_receiver', 'delivery_failed'):
+        return v
+    if 'delivered_waiting_for_receiver' in v or 'waiting for receiver' in v:
+        return 'delivered_waiting_for_receiver'
+    if 'delivery_failed' in v or 'delivery failed' in v:
+        return 'delivery_failed'
+    if 'delivering' in v:
+        return 'delivering'
+    if v == 'queued' or 'handoff queued' in v:
+        return 'queued'
     if 'no-design-blocker' in v or 'no blocker' in v or 'no-blocker' in v or 'unblocked' in v:
         return 'idle'
     if v.startswith('waiting_on_'):

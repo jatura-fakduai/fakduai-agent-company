@@ -11,10 +11,12 @@
 ## STATUS.md
 ใช้สำหรับบอก:
 - Current Objective
-- Status (`idle`, `working`, `blocked`, `done`)
+- Status (`idle`, `queued`, `delivering`, `delivered_waiting_for_receiver`, `working`, `blocked`, `delivery_failed`, `done`)
 - Next Action
 - Last Meaningful Output
 - Collaboration
+
+`queued`, `delivering`, and `delivered_waiting_for_receiver` are delivery states, not proof of active work. PM should only count progress after the receiving agent updates to `working` with evidence or routes `done`/`blocked` with an artifact.
 
 ## PM_TASKS.md
 ใช้สำหรับบอกภาพรวมโปรเจกต์:

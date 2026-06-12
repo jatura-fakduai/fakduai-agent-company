@@ -10,7 +10,7 @@
 <หนึ่งบรรทัดสรุปงานหลัก>
 
 ## Status
-<idle | working | blocked | done>
+<idle | queued | delivering | delivered_waiting_for_receiver | working | blocked | delivery_failed | done>
 
 ## Work Item
 <เช่น dashboard-refresh-flow>
@@ -33,6 +33,40 @@
 ## Collaboration
 <คุยกับใคร>
 ```
+
+## Delivery state example
+Use this before the receiving agent has acknowledged the handoff with evidence.
+
+```md
+## Current Objective
+Receive backend implementation handoff for paper evaluation runner
+
+## Status
+delivered_waiting_for_receiver
+
+## Work Item
+paper-evaluation-runner
+
+## Card ID
+backend
+
+## Requested By
+pm
+
+## Artifact Focus
+backend-artifact, focused-test-log
+
+## Next Action
+Receiver must acknowledge handoff with first evidence/status update
+
+## Last Meaningful Output
+delivery succeeded: /path/to/handoff.md
+
+## Collaboration
+PM
+```
+
+Do not convert this state to `working` until the receiver has actually started a concrete action and can cite first evidence, such as a changed file, command being run, artifact path, or explicit blocker.
 
 ---
 
