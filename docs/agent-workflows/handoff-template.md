@@ -13,6 +13,9 @@ PM -> Solution Designer -> Frontend + Backend -> QA -> Tech Lead -> Deploy
 This is the main sequence only. Agents may communicate across steps when that removes delay.
 When a handoff targets multiple roles, route no more than the configured company concurrency allows. The default is `COMPANY_MAX_PARALLEL=2`; use `COMPANY_MAX_PARALLEL=1` on small hosts.
 
+Routing status must follow delivery states from `execution-control-policy.md`.
+`route-handoff.sh` records `delivering` / `delivered_waiting_for_receiver`; the receiving agent must update to `working` only after it has started a concrete action and can cite first evidence. A dashboard showing `delivered_waiting_for_receiver` for more than 5 minutes should be treated as stale acknowledgement, not real progress.
+
 ## Required Format
 
 ```md
@@ -197,3 +200,5 @@ Tech Lead routes final decision to PM.
 - QA and review handoffs must include concrete pass/fail criteria.
 - Browser-facing release handoffs must include Playwright evidence unless Tech Lead documents an exception.
 - Progress and stale decisions must follow `docs/agent-workflows/execution-control-policy.md`.
+- Do not treat a routed handoff as `working` until the receiver has written an evidence-based status update.
+- Empty delivery logs or logs containing only the initial send line are delivery/control-plane failures and should trigger retry or reassignment.

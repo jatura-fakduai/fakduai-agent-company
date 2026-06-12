@@ -29,6 +29,23 @@ Each agent `STATUS.md` must be evidence-based:
 
 Do not use bare `working` as a meaningful update.
 
+## Delivery State Rule
+Routing a handoff is not proof that the receiving agent has started work.
+
+Allowed delivery/status progression:
+
+- `queued`: handoff exists but delivery has not started.
+- `delivering`: delivery process is running.
+- `delivered_waiting_for_receiver`: delivery completed; receiver has not yet acknowledged with evidence.
+- `working`: receiver has read the handoff and has started a concrete action with first evidence or a precise next command.
+- `blocked`: receiver cannot proceed and names owner, missing input, and next action.
+- `done` / `passed` / `failed`: receiver produced evidence.
+- `delivery_failed`: delivery failed or timed out before receiver acknowledgement.
+
+`route-handoff.sh` must not set a receiver to `working`. Only the receiving agent may set `working`, and only after writing a meaningful `last meaningful output`.
+
+If `delivered_waiting_for_receiver` remains unchanged for more than 5 minutes, PM/monitoring should treat it as stale delivery acknowledgement and retry or reassign.
+
 ## Progress Percent Rule
 Progress may advance only when evidence exists:
 
@@ -54,6 +71,13 @@ When stale:
 - First stale event: PM sends a narrow corrective handoff with exact output and a 10-15 minute timeout.
 - Second stale event: PM escalates to Tech Lead or reassigns/splits the task.
 - Third stale event: PM marks the phase blocked, reports owner/missing evidence to the user, and stops claiming progress.
+
+If an agent is stale because the delivery log is empty or only contains the initial send line, treat it as a delivery/control-plane failure, not as productive agent work.
+
+## Token Control Rule
+PM should not repeatedly read full logs, large artifacts, screenshots, or source files during periodic monitoring. Periodic reports should read compact status and event summaries first, then inspect large evidence only when a status changes, a blocker appears, or a user asks for details.
+
+Long-running monitoring should be delegated to a monitor/ops agent or cron with compact prompts. PM should receive decision-ready summaries rather than polling every role's raw logs.
 
 ## Periodic Report Format
 When the user asks for periodic reports, each report must include:

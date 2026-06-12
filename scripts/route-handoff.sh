@@ -81,11 +81,14 @@ with open(path, "a", encoding="utf-8") as f:
 PY
 
 # Keep the receiving agent's shared status file fresh so the dashboard can
-# reflect routed work immediately instead of remaining stuck at idle.
+# reflect routed work immediately. Do not mark the receiver as "working" here:
+# routing proves only that work was queued/delivering, not that the agent has
+# started producing evidence. The receiver must update its own STATUS.md to
+# "working" after it has a concrete first action or output.
 STATUS_ROOT="${SHARED_ROOT:-$HOME/.openclaw/shared/agents}"
 TARGET_STATUS="$STATUS_ROOT/$TO/STATUS.md"
 if [ -f "$TARGET_STATUS" ]; then
-  python3 - "$TARGET_STATUS" "$WORKFLOW_ID" "$FROM" "$HANDOFF_FILE" "$BODY" <<'PY'
+  python3 - "$TARGET_STATUS" "$WORKFLOW_ID" "$FROM" "$HANDOFF_FILE" "$BODY" "delivering" <<'PY'
 import datetime, re, sys
 from pathlib import Path
 
@@ -94,6 +97,7 @@ workflow_id = sys.argv[2]
 from_agent = sys.argv[3]
 handoff_file = sys.argv[4]
 body = sys.argv[5]
+status_value = sys.argv[6]
 
 text = status_path.read_text(encoding="utf-8")
 
@@ -130,10 +134,10 @@ summary = summary[:240]
 
 text = replace_field(text, "refreshed_at", datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
 text = replace_field(text, "current objective", f"{workflow_id}: {next_action}")
-text = replace_field(text, "current status", "working")
+text = replace_field(text, "current status", status_value)
 text = replace_field(text, "active blocker", "none")
 text = replace_field(text, "next action", next_action)
-text = replace_field(text, "last meaningful output", summary)
+text = replace_field(text, "last meaningful output", f"handoff queued: {handoff_file}")
 text = replace_field(text, "workflow id", workflow_id)
 
 if "- workflow id:" not in text.lower():
@@ -142,6 +146,40 @@ if "- workflow id:" not in text.lower():
 status_path.write_text(text, encoding="utf-8")
 PY
 fi
+
+update_delivery_status() {
+  local status_value="$1"
+  local detail="$2"
+  if [ ! -f "$TARGET_STATUS" ]; then
+    return 0
+  fi
+  python3 - "$TARGET_STATUS" "$WORKFLOW_ID" "$HANDOFF_FILE" "$status_value" "$detail" <<'PY' || true
+import datetime, re, sys
+from pathlib import Path
+
+status_path = Path(sys.argv[1])
+workflow_id = sys.argv[2]
+handoff_file = sys.argv[3]
+status_value = sys.argv[4]
+detail = sys.argv[5]
+text = status_path.read_text(encoding="utf-8")
+
+def replace_field(text, field, value):
+    pattern = re.compile(rf'(^-\s*{re.escape(field)}\s*:\s*).*$',
+                         re.IGNORECASE | re.MULTILINE)
+    if pattern.search(text):
+        return pattern.sub(lambda m: f"{m.group(1)}{value}", text, count=1)
+    return text.rstrip() + f"\n- {field}: {value}\n"
+
+text = replace_field(text, "refreshed_at", datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+text = replace_field(text, "current status", status_value)
+text = replace_field(text, "active blocker", "none" if status_value.startswith("delivered") else "delivery failed; sender must retry or reassign")
+text = replace_field(text, "next action", "receiver must acknowledge handoff with first evidence/status update" if status_value.startswith("delivered") else "sender must inspect delivery log and retry or reassign")
+text = replace_field(text, "last meaningful output", f"{detail}: {handoff_file}")
+text = replace_field(text, "workflow id", workflow_id)
+status_path.write_text(text, encoding="utf-8")
+PY
+}
 
 MESSAGE="$(cat <<EOF
 You have received a handoff from $FROM.
@@ -160,12 +198,22 @@ if [ "${ROUTE_DETACHED:-1}" = "1" ]; then
   mkdir -p "$DELIVERY_LOG_DIR"
   DELIVERY_LOG="$DELIVERY_LOG_DIR/${STAMP}-${FROM}-to-${TO}.log"
   (
-    COMPANY_SEND_FROM="$FROM" COMPANY_WORKFLOW_ID="$WORKFLOW_ID" "$REPO_ROOT/scripts/send-task.sh" "$TO" "$MESSAGE"
+    if COMPANY_SEND_FROM="$FROM" COMPANY_WORKFLOW_ID="$WORKFLOW_ID" "$REPO_ROOT/scripts/send-task.sh" "$TO" "$MESSAGE"; then
+      update_delivery_status "delivered_waiting_for_receiver" "delivery succeeded"
+    else
+      update_delivery_status "delivery_failed" "delivery failed; see $DELIVERY_LOG"
+      exit 1
+    fi
   ) >"$DELIVERY_LOG" 2>&1 &
   DELIVERY_PID=$!
   echo "Delivery to $TO started in background (pid $DELIVERY_PID, log $DELIVERY_LOG)" >&2
 else
-  COMPANY_SEND_FROM="$FROM" COMPANY_WORKFLOW_ID="$WORKFLOW_ID" "$REPO_ROOT/scripts/send-task.sh" "$TO" "$MESSAGE"
+  if COMPANY_SEND_FROM="$FROM" COMPANY_WORKFLOW_ID="$WORKFLOW_ID" "$REPO_ROOT/scripts/send-task.sh" "$TO" "$MESSAGE"; then
+    update_delivery_status "delivered_waiting_for_receiver" "delivery succeeded"
+  else
+    update_delivery_status "delivery_failed" "delivery failed during synchronous route"
+    exit 1
+  fi
 fi
 
 echo "$HANDOFF_FILE"
