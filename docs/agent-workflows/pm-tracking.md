@@ -6,6 +6,7 @@
 - PM ต้อง track มากกว่า status บรรทัดเดียว
 - ใช้ทั้ง `STATUS.md` และ `PM_TASKS.md` ควบคู่กัน
 - หลังประสานงานหรือ handoff สำเร็จ ต้องอัปเดตทั้งสถานะและ checklist ตามความเหมาะสม
+- ต้องใช้กฎกลาง [Agent Execution Control Policy](execution-control-policy.md): progress ต้องนับจาก evidence, `working` เปล่า ๆ ไม่นับเป็นความคืบหน้า, และงาน stale ต้องมีการจี้/escalate/reassign
 
 ## STATUS.md
 ใช้สำหรับบอก:

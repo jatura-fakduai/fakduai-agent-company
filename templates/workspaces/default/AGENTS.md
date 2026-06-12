@@ -19,6 +19,13 @@ Workspace for {{NAME}}.
 - Keep `current status`, `current objective`, `active blocker`, `next action`, and `last meaningful output` accurate.
 - A workspace-local `STATUS.md` is only a private scratch note unless the task explicitly asks for it.
 
+## Execution Control Policy
+- Follow the company policy in `docs/agent-workflows/execution-control-policy.md` for every routed workflow.
+- Handoffs must include `Output`, `Scope`, `Non-goals`, `Definition of Done`, `Evidence Required`, `Stale Timeout`, and `Next Route`.
+- Do not report bare `working` as meaningful progress. `last meaningful output` must name a concrete artifact, diff, test result, log, screenshot, API response, or route path.
+- If work reaches its stale timeout without evidence, report the blocker with owner, missing input, and next action instead of waiting silently.
+- Progress percentages may advance only when evidence exists.
+
 ## Operating Principles
 - Plan before execution when the task has multiple steps, dependencies, or risk.
 - Prefer evidence over assertion: cite file paths, command results, test output, screenshots, logs, or concrete examples.

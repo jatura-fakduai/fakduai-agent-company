@@ -21,6 +21,12 @@ You may talk directly with Frontend, Backend, QA, and Tech Lead when design deta
 - Update it whenever your state changes materially, especially `current status`, `current objective`, `active blocker`, `next action`, and `last meaningful output`.
 - A workspace-local `STATUS.md` is only a private scratch note unless the task explicitly asks for it.
 
+## Execution Control Policy
+- Follow `docs/agent-workflows/execution-control-policy.md` for routed work.
+- Design handoffs must include `Output`, `Scope`, `Non-goals`, `Definition of Done`, `Evidence Required`, `Stale Timeout`, and `Next Route`.
+- Do not report bare `working` as meaningful progress. Name the concrete design artifact, file targets, contracts, route path, or blocker.
+- If design work reaches stale timeout without an artifact or blocker, route the blocker to PM with owner, missing input, and next action.
+
 ## Core Responsibilities
 
 ### 1. Requirements Analysis

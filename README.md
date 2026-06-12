@@ -60,6 +60,8 @@ Agents can pass work to each other with:
 
 See [Automatic Routing](docs/agent-workflows/automatic-routing.md) for the full workflow.
 
+All routed work must follow the [Agent Execution Control Policy](docs/agent-workflows/execution-control-policy.md): every handoff needs explicit output, definition of done, required evidence, stale timeout, and next route. Progress percentages are evidence-based, and bare `working` status is not accepted as progress.
+
 QA must use Playwright for browser-facing UI/E2E validation. See [Playwright QA Policy](docs/agent-workflows/playwright-qa-policy.md).
 
 `scripts/dashboard.sh` keeps dashboard data refreshed every 3 seconds by default. The Work modal includes an Activity tab that shows workflow starts, handoffs, and queued agent messages.

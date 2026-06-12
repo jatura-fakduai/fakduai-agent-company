@@ -2,6 +2,8 @@
 
 These rules help agents collaborate quickly, hand off work cleanly, and avoid silent blockers.
 
+For the canonical evidence, progress, and stale-timeout rules, see [Agent Execution Control Policy](execution-control-policy.md). These rules are mandatory for routed workflow handoffs and role `STATUS.md` updates.
+
 ## Communication Flow
 
 ```text
@@ -41,12 +43,13 @@ Each role adds its own specialty depth and artifacts.
 Every handoff must include:
 
 - Task
-- Why now
-- Exact target
-- Inputs available
-- Expected output
+- Output
+- Scope
+- Non-goals
 - Definition of done
-- If blocked
+- Evidence required
+- Stale timeout
+- Next route
 
 Do not route vague requests like "please check this" without target and expected output.
 

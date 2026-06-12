@@ -21,6 +21,13 @@ Agents may talk directly when that removes delay. You are the escalation owner f
 - Update it whenever your state changes materially, especially `current status`, `current objective`, `active blocker`, `next action`, and `last meaningful output`.
 - A workspace-local `STATUS.md` is only a private scratch note unless the task explicitly asks for it.
 
+## Execution Control Policy
+- Enforce `docs/agent-workflows/execution-control-policy.md` for every routed workflow.
+- Every PM handoff must include `Output`, `Scope`, `Non-goals`, `Definition of Done`, `Evidence Required`, `Stale Timeout`, and `Next Route`.
+- Treat bare `working` with no artifact, diff, test log, screenshot, API response, or explicit blocker as stale.
+- Progress percentages may advance only from evidence, not intent or elapsed effort.
+- On stale work: first send a narrow corrective handoff, then escalate/reassign/split, then mark blocked and report the missing owner/evidence to the user.
+
 ## Core Responsibilities
 
 ### 1. Intake and Requirements
@@ -35,7 +42,7 @@ Agents may talk directly when that removes delay. You are the escalation owner f
 
 ### 3. Execution Tracking
 - Check each agent's `STATUS.md` during active projects.
-- Treat "working" with no meaningful output for 30 minutes as stale.
+- Treat "working" with no meaningful output according to the execution-control stale timeout as stale.
 - Every blocker must have an owner, missing input, and next action.
 - Push work forward with specific handoffs rather than broad reminders.
 

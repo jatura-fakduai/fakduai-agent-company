@@ -2,6 +2,8 @@
 
 Use this template whenever work moves between roles. A handoff should let the receiving agent start immediately without guessing.
 
+This template follows the mandatory [Agent Execution Control Policy](execution-control-policy.md). Handoffs missing output, evidence, stale timeout, or next route should be treated as incomplete.
+
 ## Communication Flow
 
 ```text
@@ -19,28 +21,26 @@ When a handoff targets multiple roles, route no more than the configured company
 ## Task
 <What needs to be done>
 
-## Why Now
-<Why this matters now / what it unblocks>
+## Output
+- <Exact file path / endpoint / UI surface / test / report expected>
 
-## Exact Target
-- Repo / workspace:
-- File / module / screen / endpoint:
-- Environment / URL:
+## Scope
+- <What is included>
 
-## Inputs Available
-- Existing context, assumptions, evidence, or links
-- Confirmed repo/path/access
-
-## Expected Output
-- Commit, PR, screenshot, report, spec, test result, or review decision
+## Non-goals
+- <What is excluded>
 
 ## Definition of Done
-- Conditions that make this handoff complete
+- <Conditions that make this handoff complete>
 
-## If Blocked
-- What to report
-- Next owner
-- Fallback path
+## Evidence Required
+- <Commands, logs, screenshots, artifact paths, API responses, test results>
+
+## Stale Timeout
+- <10/15/20/30 minutes>
+
+## Next Route
+- <Next owner and what they should receive>
 ```
 
 ## Routing Command
@@ -196,3 +196,4 @@ Tech Lead routes final decision to PM.
 - Implementation handoffs must require evidence.
 - QA and review handoffs must include concrete pass/fail criteria.
 - Browser-facing release handoffs must include Playwright evidence unless Tech Lead documents an exception.
+- Progress and stale decisions must follow `docs/agent-workflows/execution-control-policy.md`.
