@@ -30,6 +30,7 @@ fi
 SHARED_ROOT="${SHARED_ROOT:-$DEFAULT_OPENCLAW_HOME/shared/agents}"
 WORKFLOW_ROOT="${WORKFLOW_ROOT:-$DEFAULT_OPENCLAW_HOME/shared/company-workflows}"
 OUTBOX_ROOT="${OUTBOX_ROOT:-$DEFAULT_OPENCLAW_HOME/shared/company-outbox}"
+ACTIVITY_ROOT="${ACTIVITY_ROOT:-$DEFAULT_OPENCLAW_HOME/shared/company-activity}"
 
 # Step 2: if any resolved root does not exist on disk, fall back to canonical.
 if [ ! -d "$SHARED_ROOT" ]; then
@@ -45,6 +46,11 @@ fi
 if [ ! -d "$OUTBOX_ROOT" ]; then
   if [ -d "$_CANONICAL_ROOT/shared/company-outbox" ]; then
     OUTBOX_ROOT="$_CANONICAL_ROOT/shared/company-outbox"
+  fi
+fi
+if [ ! -d "$ACTIVITY_ROOT" ]; then
+  if [ -d "$_CANONICAL_ROOT/shared/company-activity" ]; then
+    ACTIVITY_ROOT="$_CANONICAL_ROOT/shared/company-activity"
   fi
 fi
 ONCE=0
@@ -80,7 +86,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 cd "$REPO_ROOT"
-export REPO_ROOT SHARED_ROOT WORKFLOW_ROOT OUTBOX_ROOT
+export REPO_ROOT SHARED_ROOT WORKFLOW_ROOT OUTBOX_ROOT ACTIVITY_ROOT
 
 # ---- Serve from local /tmp to avoid fakeowner mount cache coherence issues ----
 SERVE_DIR="/tmp/openclaw-dashboard"
@@ -96,6 +102,9 @@ sync_static_ui() {
   fi
   if [ -f ui/dashboard/data/app-version.json ]; then
     cp -a ui/dashboard/data/app-version.json "$SERVE_DIR/data/app-version.json" 2>/dev/null || true
+  fi
+  if [ -f ui/dashboard/data/stage-positions.json ]; then
+    cp -a ui/dashboard/data/stage-positions.json "$SERVE_DIR/data/stage-positions.json" 2>/dev/null || true
   fi
 }
 
@@ -191,6 +200,9 @@ from pathlib import Path
 
 port = int(sys.argv[1])
 stale_after = int(sys.argv[2])
+repo_root = Path(os.environ.get('REPO_ROOT', '')).resolve()
+stage_positions_repo_path = repo_root / 'ui' / 'dashboard' / 'data' / 'stage-positions.json'
+stage_positions_serve_path = Path('data/stage-positions.json')
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -204,6 +216,44 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_dashboard_health()
             return
         super().do_GET()
+
+    def do_POST(self):
+        path = self.path.split('?', 1)[0]
+        if path != '/data/stage-positions.json':
+            self.send_json_response({'ok': False, 'error': 'Unsupported save target'}, 404)
+            return
+
+        try:
+            size = int(self.headers.get('Content-Length', '0'))
+        except ValueError:
+            self.send_json_response({'ok': False, 'error': 'Invalid content length'}, 400)
+            return
+        if size <= 0 or size > 512_000:
+            self.send_json_response({'ok': False, 'error': 'Invalid JSON size'}, 400)
+            return
+
+        try:
+            raw = self.rfile.read(size)
+            body = raw.decode('utf-8')
+            payload = json.loads(body)
+            if not isinstance(payload, dict):
+                raise ValueError('Root value must be an object')
+            if not any(key in payload for key in ('base', 'talk', 'meeting', 'routes')):
+                raise ValueError('Missing layout sections')
+            body = body.rstrip() + '\n'
+            stage_positions_repo_path.parent.mkdir(parents=True, exist_ok=True)
+            stage_positions_serve_path.parent.mkdir(parents=True, exist_ok=True)
+            stage_positions_repo_path.write_text(body, encoding='utf-8')
+            stage_positions_serve_path.write_text(body, encoding='utf-8')
+        except Exception as exc:
+            self.send_json_response({'ok': False, 'error': str(exc)}, 400)
+            return
+
+        self.send_json_response({
+            'ok': True,
+            'path': 'data/stage-positions.json',
+            'updatedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        })
 
     def send_dashboard_health(self):
         data_path = Path('data/agents.json')
@@ -231,7 +281,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-with socketserver.TCPServer(('', port), DashboardHandler) as httpd:
+    def send_json_response(self, payload, status=200):
+        body = json.dumps(payload, indent=2).encode()
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+class ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
+
+with ReusableTCPServer(('', port), DashboardHandler) as httpd:
     httpd.serve_forever()
 PY
 SERVER_PID=$!

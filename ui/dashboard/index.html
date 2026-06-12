@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
 <title>Pinto Valley Office</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -49,6 +50,16 @@ body.wide #stage-map{max-height:calc(100vw / 1.5)}
 #meeting-glow.on{display:none}
 #agent-layer{position:absolute;inset:0;pointer-events:none;z-index:3}
 #desk-occlusion-layer{position:absolute;inset:0;pointer-events:none;z-index:4}
+#layout-edit-layer{display:none;position:absolute;inset:0;pointer-events:none;z-index:8}
+body.layout-editing #layout-edit-layer{display:block;pointer-events:auto;cursor:crosshair}
+.edit-area-line{position:absolute;height:22px;border-radius:999px;background:rgba(34,211,238,.13);border:1px dashed rgba(34,211,238,.38);box-shadow:0 0 16px rgba(34,211,238,.12);transform-origin:0 50%;pointer-events:none}
+.edit-line{position:absolute;height:2px;border-radius:999px;background:rgba(250,204,21,.68);box-shadow:0 0 8px rgba(250,204,21,.34);transform-origin:0 50%}
+.edit-line{pointer-events:none}
+.edit-point{position:absolute;width:18px;height:18px;border-radius:50%;transform:translate(-50%,-50%);display:grid;place-items:center;background:#facc15;color:#111827;border:2px solid #fff;font-size:9px;font-weight:950;box-shadow:0 3px 12px rgba(0,0,0,.44),0 0 0 3px rgba(250,204,21,.18);cursor:grab;pointer-events:auto;touch-action:none;user-select:none}
+.edit-point:active{cursor:grabbing}
+.edit-point.active{background:#22d3ee;box-shadow:0 3px 12px rgba(0,0,0,.44),0 0 0 4px rgba(34,211,238,.24)}
+.edit-point.final{background:#a78bfa;color:#fff}
+.edit-point.dragging{background:#fb923c;color:#111827}
 #chat-feed{position:fixed;left:12px;bottom:304px;z-index:48;width:240px;max-height:300px;background:rgba(10,15,28,.78);border:1px solid rgba(255,255,255,.1);border-radius:7px;box-shadow:0 6px 20px rgba(0,0,0,.3);backdrop-filter:blur(7px);overflow:hidden;pointer-events:auto}
 #chat-feed .chh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.07);font-size:9px;color:#8b949e;font-weight:900;text-transform:uppercase;letter-spacing:.55px}
 #chat-feed .cht{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -95,7 +106,8 @@ body.wide #stage-map{max-height:calc(100vw / 1.5)}
 .monitor-occluder:before{content:"";position:absolute;left:12%;top:0;width:76%;height:66%;border-radius:2px;background:linear-gradient(180deg,#1b2432,#0a0f18 72%,#05070c);border:1px solid rgba(70,88,115,.85);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -5px 8px rgba(0,0,0,.45)}
 .monitor-occluder:after{content:"";position:absolute;left:42%;top:64%;width:18%;height:28%;background:linear-gradient(180deg,#202838,#0c111a);border-left:1px solid rgba(255,255,255,.08);border-right:1px solid rgba(0,0,0,.4)}
 .monitor-occluder .monitor-base{position:absolute;left:27%;top:84%;width:48%;height:13%;border-radius:50%;background:rgba(8,12,18,.88);border:1px solid rgba(255,255,255,.08)}
-.oa{position:absolute;transform:translate(-50%,-100%) scale(.42);transform-origin:50% 100%;display:flex;flex-direction:column;align-items:center;gap:3px;filter:drop-shadow(0 7px 9px rgba(0,0,0,.45));transition:left .9s cubic-bezier(.2,.8,.25,1),top .9s cubic-bezier(.2,.8,.25,1)}
+.oa{position:absolute;transform:translate(-50%,-100%) scale(.42);transform-origin:50% 100%;display:flex;flex-direction:column;align-items:center;gap:3px;filter:drop-shadow(0 7px 9px rgba(0,0,0,.45))}
+.oa.pm{--seat-x:0px;--walk-x:0px}.oa.designer{--seat-x:-128px;--walk-x:-128px}.oa.frontend{--seat-x:-256px;--walk-x:-256px}.oa.backend{--seat-x:-384px;--walk-x:-384px}.oa.qa{--seat-x:-512px;--walk-x:-512px}.oa.techlead{--seat-x:-640px;--walk-x:-640px}
 .oa.focus{filter:drop-shadow(0 0 12px rgba(88,166,255,.9)) drop-shadow(0 7px 9px rgba(0,0,0,.45))}
 .oa.focus .oatag{border-color:rgba(88,166,255,.85);box-shadow:0 0 0 2px rgba(88,166,255,.18)}
 .oatag{display:flex;align-items:center;gap:5px;background:rgba(11,18,36,.82);border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:800;white-space:nowrap;transform:translateY(-1px)}
@@ -103,13 +115,17 @@ body.wide #stage-map{max-height:calc(100vw / 1.5)}
 .oadot.working{background:#4ade80;box-shadow:0 0 0 4px rgba(74,222,128,.16)}
 .oadot.blocked{background:#f87171;box-shadow:0 0 0 4px rgba(248,113,113,.18)}
 .oadot.done{background:#22d3ee}
-.oachar{width:128px;height:171px;position:relative;transform-origin:50% 100%;background-image:url('assets/employee-sprites-transparent.png');background-size:768px 512px;background-position:0 0;background-repeat:no-repeat;scale:-1 1}
+.oachar{width:128px;height:171px;position:relative;transform-origin:50% 100%;background-image:url('assets/employee-seat-sprites.png');background-size:768px 512px;background-position:var(--seat-x,0) 0;background-repeat:no-repeat;scale:1 1}
 .oachar:after{content:"";position:absolute;left:45px;top:122px;width:42px;height:8px;border-radius:6px;background:rgba(17,24,39,.55);border:1px solid rgba(255,255,255,.12);opacity:0;z-index:7}
-.oa.pm .oachar{background-position:0 0}.oa.designer .oachar{background-position:-256px 0}.oa.frontend .oachar{background-position:-640px -171px}.oa.backend .oachar{background-position:-128px -171px}.oa.qa .oachar{background-position:-256px -171px}.oa.techlead .oachar{background-position:-512px -171px}
-.oa.meeting.pm .oachar{background-position:-128px 0}.oa.meeting.designer .oachar{background-position:-384px 0}.oa.meeting.frontend .oachar{background-position:-512px 0}.oa.meeting.backend .oachar{background-position:0 -171px}.oa.meeting.qa .oachar{background-position:-256px -171px}.oa.meeting.techlead .oachar{background-position:-640px -171px}
-.oa.meeting.frontend .oachar{clip-path:inset(0 0 58px 0)}
-.oa.meeting.backend .oachar,.oa.meeting.qa .oachar{clip-path:inset(0 0 70px 0)}
+.oa.meeting:not(.walking):not(.talking) .oachar,.oa.backseat:not(.walking):not(.talking) .oachar{background-position:var(--seat-x,0) -341.33px;clip-path:none}
+.oa.meetingface:not(.walking):not(.talking) .oachar{background-position:var(--seat-x,0) -170.67px;clip-path:none}
 .oachar>.oashadow,.oachar>.oaleg,.oachar>.oaarm,.oachar>.oabody,.oachar>.oaneck,.oachar>.oahead,.oachar>.oahair,.oachar>.oabadge{display:none}
+.oa.walking .oachar,.oa.talking .oachar{width:128px;height:171px;background-image:url('assets/employee-walk-sprites.png');background-size:768px 512px;background-position:var(--walk-x,0) 0;background-repeat:no-repeat;scale:1 1;clip-path:none}
+.oa.walking .oachar>.oashadow,.oa.walking .oachar>.oaleg,.oa.walking .oachar>.oaarm,.oa.walking .oachar>.oabody,.oa.walking .oachar>.oaneck,.oa.walking .oachar>.oahead,.oa.walking .oachar>.oahair,.oa.walking .oachar>.oabadge,.oa.talking .oachar>.oashadow,.oa.talking .oachar>.oaleg,.oa.talking .oachar>.oaarm,.oa.talking .oachar>.oabody,.oa.talking .oachar>.oaneck,.oa.talking .oachar>.oahead,.oa.talking .oachar>.oahair,.oa.talking .oachar>.oabadge{display:none}
+body.sprite-missing .oachar,body.walk-sprite-missing .oa.walking .oachar,body.walk-sprite-missing .oa.talking .oachar{width:50px;height:62px;background:none;scale:1.65;clip-path:none}
+body.sprite-missing .oachar>.oashadow,body.sprite-missing .oachar>.oaleg,body.sprite-missing .oachar>.oaarm,body.sprite-missing .oachar>.oabody,body.sprite-missing .oachar>.oaneck,body.sprite-missing .oachar>.oahead,body.sprite-missing .oachar>.oahair,body.sprite-missing .oachar>.oabadge,body.walk-sprite-missing .oa.walking .oachar>.oashadow,body.walk-sprite-missing .oa.walking .oachar>.oaleg,body.walk-sprite-missing .oa.walking .oachar>.oaarm,body.walk-sprite-missing .oa.walking .oachar>.oabody,body.walk-sprite-missing .oa.walking .oachar>.oaneck,body.walk-sprite-missing .oa.walking .oachar>.oahead,body.walk-sprite-missing .oa.walking .oachar>.oahair,body.walk-sprite-missing .oa.walking .oachar>.oabadge,body.walk-sprite-missing .oa.talking .oachar>.oashadow,body.walk-sprite-missing .oa.talking .oachar>.oaleg,body.walk-sprite-missing .oa.talking .oachar>.oaarm,body.walk-sprite-missing .oa.talking .oachar>.oabody,body.walk-sprite-missing .oa.talking .oachar>.oaneck,body.walk-sprite-missing .oa.talking .oachar>.oahead,body.walk-sprite-missing .oa.talking .oachar>.oahair,body.walk-sprite-missing .oa.talking .oachar>.oabadge{display:block}
+.oa.walking .oachar:after,.oa.talking .oachar:after{opacity:0}
+body.sprite-missing .oachar:after{left:10px;top:43px;width:30px}
 .oashadow{position:absolute;left:8px;bottom:0;width:34px;height:9px;border-radius:50%;background:rgba(0,0,0,.3)}
 .oaleg{position:absolute;top:39px;width:7px;height:12px;background:var(--pants,#26324f);border:2px solid #182033;border-radius:6px;transform-origin:50% 0;z-index:1}
 .oaleg.l{left:15px;transform:rotate(14deg)}.oaleg.r{right:15px;transform:rotate(-14deg)}
@@ -127,10 +143,12 @@ body.wide #stage-map{max-height:calc(100vw / 1.5)}
 .oaeye{position:absolute;top:13px;width:4px;height:6px;background:#172033;border-radius:50%;z-index:8}.oaeye.l{left:8px}.oaeye.r{right:8px}
 .oamouth{position:absolute;left:13px;top:22px;width:6px;height:2px;border-radius:4px;background:rgba(50,35,35,.5);z-index:8}
 .oabadge{position:absolute;right:7px;top:32px;width:8px;height:8px;border-radius:50%;background:#fff;border:1px solid rgba(0,0,0,.25);z-index:5}
-.oa.working .oachar{animation:workBob .7s infinite alternate}.oa.blocked .oachar{animation:blockWobble .35s infinite alternate}.oa.walking .oachar{animation:walkBob .45s infinite}
-.oa.working .oachar:after{opacity:1}.oa.working .oaarm.l{animation:typeL .45s infinite alternate}.oa.working .oaarm.r{animation:typeR .45s infinite alternate}
+.oa.working:not(.walking):not(.talking):not(.meeting):not(.backseat) .oachar{background-position:var(--seat-x,0) -170.67px;animation:workBob .7s infinite alternate}.oa.blocked .oachar{animation:blockWobble .35s infinite alternate}.oa.walking .oachar{animation:walkSheet .66s steps(1) infinite,walkBob .45s infinite}
+.oa.working:not(.walking):not(.talking) .oachar:after{opacity:0}.oa.working .oaarm.l{animation:typeL .45s infinite alternate}.oa.working .oaarm.r{animation:typeR .45s infinite alternate}
 .oa.walking .oaleg.l{animation:legL .45s infinite}.oa.walking .oaleg.r{animation:legR .45s infinite}.oa.walking .oaarm.l{animation:armL .45s infinite}.oa.walking .oaarm.r{animation:armR .45s infinite}
-@keyframes workBob{to{transform:translateY(2px)}}@keyframes blockWobble{to{transform:translateX(2px) rotate(-2deg)}}@keyframes walkBob{50%{transform:translateY(3px)}}@keyframes legL{50%{transform:rotate(18deg)}}@keyframes legR{50%{transform:rotate(-18deg)}}@keyframes armL{50%{transform:rotate(-18deg)}}@keyframes armR{50%{transform:rotate(18deg)}}@keyframes typeL{to{transform:rotate(28deg) translateY(2px)}}@keyframes typeR{to{transform:rotate(-28deg) translateY(2px)}}
+.oa.talking .oabubble{border-color:rgba(121,192,255,.48);box-shadow:0 0 0 2px rgba(121,192,255,.12),0 5px 14px rgba(0,0,0,.3);animation:talkPulse .9s infinite alternate}
+.oa.talking .oamouth{animation:talkMouth .26s infinite alternate}
+@keyframes workBob{to{transform:translateY(2px)}}@keyframes blockWobble{to{transform:translateX(2px) rotate(-2deg)}}@keyframes walkBob{50%{transform:translateY(3px)}}@keyframes walkSheet{0%,32%{background-position:var(--walk-x,0) -170.67px}33%,65%{background-position:var(--walk-x,0) 0}66%,100%{background-position:var(--walk-x,0) -341.33px}}@keyframes legL{50%{transform:rotate(18deg)}}@keyframes legR{50%{transform:rotate(-18deg)}}@keyframes armL{50%{transform:rotate(-18deg)}}@keyframes armR{50%{transform:rotate(18deg)}}@keyframes typeL{to{transform:rotate(28deg) translateY(2px)}}@keyframes typeR{to{transform:rotate(-28deg) translateY(2px)}}@keyframes talkPulse{to{transform:translateY(-1px)}}@keyframes talkMouth{to{height:4px;top:21px}}
 
 /* Sidebar */
 #sb{position:fixed;right:0;top:56px;bottom:0;width:310px;background:linear-gradient(180deg,#101936,#0f0f1e);border-left:1px solid rgba(255,255,255,.07);z-index:50;overflow-y:auto;transition:transform .3s}
@@ -262,6 +280,12 @@ body.wide #stage-map{max-height:calc(100vw / 1.5)}
 #sm{display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:16px}
 #sm.open{display:flex}
 #siw{background:#0f0f1e;border:1px solid rgba(255,255,255,.08);border-radius:14px;width:min(96vw,840px);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+body.layout-editing #sm{background:transparent;backdrop-filter:none;justify-content:flex-end;align-items:stretch;padding:68px 12px 12px 0;pointer-events:none}
+body.layout-editing #siw{width:min(420px,calc(100vw - 24px));max-height:none;height:100%;border-radius:10px;pointer-events:auto;box-shadow:0 12px 40px rgba(0,0,0,.42)}
+body.layout-editing #scfg{padding:10px}
+body.layout-editing .layout-panel{grid-template-columns:1fr;gap:10px}
+body.layout-editing .layout-json{min-height:150px;max-height:220px}
+body.layout-editing .layout-main{padding:8px}
 #sh{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}
 #sh h2{font-size:14px;font-weight:700;color:#eee;flex:1}
 #scfg{overflow:auto;padding:14px 18px}
@@ -280,6 +304,29 @@ body.wide #stage-map{max-height:calc(100vw / 1.5)}
 .cfgfiles{display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,.06);padding-top:8px;margin-top:8px}
 .cfgfile{padding:5px 8px;font-size:11px}
 .cfgempty{color:#6e7681;font-size:11px}
+.layout-panel{display:grid;grid-template-columns:minmax(230px,300px) minmax(280px,1fr);gap:12px;align-items:start}
+.layout-side,.layout-main{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);border-radius:10px;padding:10px}
+.layout-tabs,.layout-segs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.layout-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:8px}
+.layout-choice-grid.area{grid-template-columns:repeat(3,minmax(0,1fr))}
+.layout-choice-grid .cfgbtn{padding:7px 6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.layout-field{display:grid;gap:4px;margin-bottom:8px}
+.layout-field label{font-size:10px;color:#8b949e;font-weight:800;text-transform:uppercase;letter-spacing:.55px}
+.layout-field select,.layout-field input{width:100%;background:#0b1020;border:1px solid rgba(255,255,255,.12);color:#e5edf7;border-radius:7px;padding:6px 8px;font-size:12px}
+.layout-readout{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.layout-num{border:1px solid rgba(255,255,255,.08);border-radius:8px;background:rgba(0,0,0,.16);padding:8px}
+.layout-num span{display:block;color:#8b949e;font-size:10px;font-weight:800;text-transform:uppercase}
+.layout-num strong{display:block;color:#f0f6fc;font-size:18px;font-variant-numeric:tabular-nums;margin-top:2px}
+.nudge-grid{display:grid;grid-template-columns:repeat(3,44px);gap:6px;justify-content:start;align-items:center;margin:10px 0}
+.nudge-grid .blank{width:44px;height:32px}
+.nudge-grid button{height:32px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(121,192,255,.1);color:#dbeafe;font-weight:900;cursor:pointer}
+.layout-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.layout-json{width:100%;min-height:220px;resize:vertical;background:#050914;color:#dbeafe;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:10px;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+.layout-note{color:#8b949e;font-size:11px;line-height:1.45;margin:8px 0}
+.layout-dirty{color:#facc15;font-size:11px;font-weight:800}
+.layout-saved{color:#7ee787;font-size:11px;font-weight:800}
+.layout-error{color:#ffa198;font-size:11px;font-weight:800}
+@media(max-width:720px){.layout-panel{grid-template-columns:1fr}.layout-json{min-height:160px}}
 .oabubble{max-width:210px;min-height:21px;display:flex;align-items:center;gap:5px;background:rgba(8,13,25,.86);border:1px solid rgba(255,255,255,.16);color:#edf6ff;border-radius:8px;padding:3px 7px;font-size:10px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 3px 10px rgba(0,0,0,.25)}
 .oabubble.idle{color:#9ca3af}.oabubble.working{border-color:rgba(74,222,128,.38);color:#bbf7d0}.oabubble.blocked{border-color:rgba(248,113,113,.45);color:#fecaca}.oabubble.done{border-color:rgba(34,211,238,.38);color:#a5f3fc}.oabubble.offline{opacity:.72}
 .oasig{font-size:11px;line-height:1}
@@ -347,6 +394,7 @@ body.wide #stage-map{max-height:calc(100vw / 1.5)}
       <div class="msbtopic">Loading work status</div>
     </div>
     <div id="meeting-glow"></div>
+    <div id="layout-edit-layer" onpointerdown="startLayoutDrag(event)"></div>
     <div id="agent-layer"></div>
     <div id="desk-occlusion-layer"></div>
   </div>
@@ -429,8 +477,88 @@ let occluders={};
 let meetingSim=false,manualMeeting=null;
 let agentFileManifest=null;
 let stageFocus={mode:'overview',id:''};
+let settingsTab='agents';
+let layoutEditor={kind:'position',area:'meeting',role:'frontend',point:0,step:.5,draft:null,dirty:false,copied:false,autoSave:true,saving:false,saved:false,saveError:'',saveTimer:0};
+let layoutDrag={active:false,index:0,final:false};
 const REQUIRED_WORK_AGENT_IDS=['pm','designer','frontend','backend','qa','techlead'];
+const STAGE_WALK_SPEED=7.5;
+const STAGE_POSITION_DEFAULTS={
+  base:{
+    pm:[22.5,27],
+    designer:[78,24],
+    frontend:[42,59],
+    backend:[47,75],
+    qa:[82,49],
+    techlead:[82.5,73]
+  },
+  talk:{
+    pm:[39,37.5],
+    designer:[43.5,36.5],
+    frontend:[47.5,36],
+    backend:[51.5,36],
+    qa:[55.5,36.5],
+    techlead:[60,37.5]
+  },
+  meeting:{
+    frontend:[45.5,19.5],
+    backend:[49,18.5],
+    qa:[52.5,17.5],
+    pm:[47.5,31.5],
+    designer:[51.5,30],
+    techlead:[59.5,30.5]
+  },
+  fallback:{
+    base:[50,50],
+    talk:[50,37],
+    meeting:[51,33],
+    lounge:[24,63],
+    blockedOffset:[1.2,1.4]
+  },
+  routes:{
+    meeting:{
+      pm:[[30,35],[38,36],[43,35],[46,33]],
+      designer:[[69,29],[63,30],[56,32]],
+      frontend:[[43,48],[39,41],[40,34],[40,27],[42,23]],
+      backend:[[46,65],[42,55],[39,42],[40,34],[40,27],[45,22]],
+      qa:[[71,47],[64,42],[62,34],[62,26],[56,22]],
+      techlead:[[72,67],[68,56],[64,43],[62,35],[60,30]]
+    },
+    talk:{
+      pm:[[30,35],[36,37]],
+      designer:[[69,29],[62,34],[57,36]],
+      frontend:[[43,48],[41,40]],
+      backend:[[46,65],[42,55],[40,42],[46,38]],
+      qa:[[71,47],[64,42],[58,38]],
+      techlead:[[72,67],[68,55],[64,44],[61,39]]
+    },
+    base:{
+      pm:[[46,33],[43,35],[38,36],[30,35]],
+      designer:[[56,32],[63,30],[69,29]],
+      frontend:[[42,23],[40,27],[40,34],[39,42],[43,48]],
+      backend:[[45,22],[40,27],[40,34],[39,42],[42,55],[46,65]],
+      qa:[[56,22],[62,26],[62,34],[64,42],[71,47]],
+      techlead:[[60,30],[62,35],[64,43],[68,56],[72,67]]
+    },
+    lounge:{
+      default:[[45,48],[35,52],[28,56]]
+    }
+  }
+};
+let stagePositions=STAGE_POSITION_DEFAULTS;
+let stageMotion={raf:0,last:0};
 document.getElementById('office-sign').textContent=OFFICE_SIGN_NAME;
+
+function initEmployeeSpriteFallback(){
+  const probe=(src,cls)=>{
+    const img=new Image();
+    img.onload=()=>document.body.classList.remove(cls);
+    img.onerror=()=>document.body.classList.add(cls);
+    img.src=src;
+  };
+  probe('assets/employee-seat-sprites.png','sprite-missing');
+  probe('assets/employee-walk-sprites.png','walk-sprite-missing');
+}
+initEmployeeSpriteFallback();
 
 // Isometric helpers
 function isoX(gx,gy){return(gx-gy)*TILE}
@@ -541,6 +669,16 @@ function hasTalk(a){
   const vals=[a.speech,a.thought,a.message,a.lastMessage,a.currentMessage].map(v=>(v||'').toString().trim().toLowerCase());
   return vals.some(v=>v&&v!=='n/a'&&v!=='none'&&v!=='not online yet'&&v!=='waiting for next task');
 }
+function talkingNow(a){
+  const rt=a&&a.recentTask;
+  return !!(rt&&rt.isRecent)||((a&&a.location)==='meeting'&&hasTalk(a));
+}
+function backSeatNow(a){
+  return !!(a&&['frontend','backend'].includes(a.id));
+}
+function meetingFaceNow(a){
+  return !!(a&&['frontend','backend','qa'].includes(a.id)&&(meetingSim||a.location==='meeting'));
+}
 function hasConversation(list,acd){
   // Only auto-meeting if an agent explicitly has location='meeting'
   if((list||[]).some(a=>a.location==='meeting'))return true;
@@ -549,7 +687,8 @@ function hasConversation(list,acd){
 function shortWork(a){
   const n=norm(a.status);
   const sig={working:'⚡',blocked:'!',done:'✓',offline:'○',idle:'●'}[n]||'●';
-  const raw=[a.speech,a.thought,a.nextAction,a.objective,a.lastOutput].map(v=>(v||'').toString().trim()).find(v=>v&&v!=='N/A'&&v!=='No status'&&v!=='not online yet'&&v!=='Waiting for next task');
+  const recent=a.recentTask&&a.recentTask.isRecent?a.recentTask.summary:'';
+  const raw=[recent,a.speech,a.thought,a.nextAction,a.objective,a.lastOutput].map(v=>(v||'').toString().trim()).find(v=>v&&v!=='N/A'&&v!=='No status'&&v!=='not online yet'&&v!=='Waiting for next task');
   const fallback={working:'กำลังทำงาน',blocked:'ติด blocker',done:'เสร็จแล้ว',offline:'offline',idle:'standby'}[n]||'standby';
   const txt=(raw||fallback).replace(/\s+/g,' ').slice(0,48);
   return{sig,txt,n};
@@ -853,6 +992,7 @@ function drawRoomLabels(){
 function getTarget(id,loc){
   const ids=Object.keys(HOMES),idx=Math.max(0,ids.indexOf(id));
   if(loc==='meeting'){const mr=ROOMS.find(r=>r.type==='meeting');if(mr)return{x:mr.x+mr.w/2,y:mr.y+mr.h/2}}
+  if(loc==='talk'){const mr=ROOMS.find(r=>r.type==='meeting');if(mr)return{x:mr.x+mr.w/2+(idx%3-1)*.55,y:mr.y+mr.h/2+Math.floor(idx/3)*.45}}
   if(loc==='lounge'){const lr=ROOMS.find(r=>r.type==='lounge');if(lr)return{x:lr.x+lr.w/2,y:lr.y+lr.h/2}}
   return HOMES[id]||{x:5,y:5};
 }
@@ -1051,12 +1191,321 @@ function updateDataFreshness(meta){
   }
   setDataBanner('', '');
 }
+function stagePair(value,fallback){
+  const x=Array.isArray(value)?Number(value[0]):NaN;
+  const y=Array.isArray(value)?Number(value[1]):NaN;
+  if(Number.isFinite(x)&&Number.isFinite(y))return[x,y];
+  return Array.isArray(fallback)?[fallback[0],fallback[1]]:null;
+}
+function stageRoleMap(src,defaults){
+  const out={};
+  Object.keys(defaults||{}).forEach(id=>{out[id]=stagePair(src&&src[id],defaults[id])});
+  if(src&&typeof src==='object'){
+    Object.keys(src).forEach(id=>{
+      if(!out[id]){
+        const pair=stagePair(src[id],null);
+        if(pair)out[id]=pair;
+      }
+    });
+  }
+  return out;
+}
+function stageRouteList(value){
+  if(!Array.isArray(value))return[];
+  return value.map(pt=>stagePair(pt,null)).filter(Boolean);
+}
+function stageRouteMap(src,defaults){
+  const out={};
+  Object.keys(defaults||{}).forEach(id=>{
+    const route=stageRouteList(src&&src[id]);
+    out[id]=route.length?route:stageRouteList(defaults[id]);
+  });
+  if(src&&typeof src==='object'){
+    Object.keys(src).forEach(id=>{
+      if(!out[id]){
+        const route=stageRouteList(src[id]);
+        if(route.length)out[id]=route;
+      }
+    });
+  }
+  return out;
+}
+function applyStagePositions(cfg){
+  if(!cfg||typeof cfg!=='object')return;
+  const d=STAGE_POSITION_DEFAULTS;
+  const routes=cfg.routes||{};
+  stagePositions={
+    base:stageRoleMap(cfg.base,d.base),
+    talk:stageRoleMap(cfg.talk,d.talk),
+    meeting:stageRoleMap(cfg.meeting,d.meeting),
+    fallback:{
+      base:stagePair(cfg.fallback&&cfg.fallback.base,d.fallback.base),
+      talk:stagePair(cfg.fallback&&cfg.fallback.talk,d.fallback.talk),
+      meeting:stagePair(cfg.fallback&&cfg.fallback.meeting,d.fallback.meeting),
+      lounge:stagePair(cfg.fallback&&cfg.fallback.lounge,d.fallback.lounge),
+      blockedOffset:stagePair(cfg.fallback&&cfg.fallback.blockedOffset,d.fallback.blockedOffset)
+    },
+    routes:{
+      base:stageRouteMap(routes.base,d.routes.base),
+      talk:stageRouteMap(routes.talk,d.routes.talk),
+      meeting:stageRouteMap(routes.meeting,d.routes.meeting),
+      lounge:stageRouteMap(routes.lounge,d.routes.lounge)
+    }
+  };
+}
+function cloneLayoutConfig(cfg){
+  return JSON.parse(JSON.stringify(cfg||STAGE_POSITION_DEFAULTS));
+}
+function ensureLayoutDraft(){
+  if(!layoutEditor.draft)layoutEditor.draft=cloneLayoutConfig(stagePositions);
+  return layoutEditor.draft;
+}
+function stageConfigExport(cfg){
+  const src=cfg||ensureLayoutDraft();
+  return{
+    _help:'Positions are [leftPercent, topPercent]. Smaller top moves up; larger left moves right.',
+    base:src.base||{},
+    talk:src.talk||{},
+    meeting:src.meeting||{},
+    fallback:src.fallback||{},
+    routes:{
+      _help:'Each point is [leftPercent, topPercent]. Routes are waypoints before the final role position.',
+      meeting:(src.routes&&src.routes.meeting)||{},
+      talk:(src.routes&&src.routes.talk)||{},
+      base:(src.routes&&src.routes.base)||{},
+      lounge:(src.routes&&src.routes.lounge)||{}
+    }
+  };
+}
+function layoutJsonText(){
+  return JSON.stringify(stageConfigExport(ensureLayoutDraft()),null,2);
+}
+function roundStage(v){
+  return Math.round(Number(v)*10)/10;
+}
+function layoutAreaOptions(){
+  return layoutEditor.kind==='position'?['base','talk','meeting']:['meeting','talk','base'];
+}
+function selectedLayoutPair(){
+  const cfg=ensureLayoutDraft(),area=layoutEditor.area,role=layoutEditor.role;
+  if(layoutEditor.kind==='route'){
+    const route=(((cfg.routes||{})[area]||{})[role]||[]);
+    const pt=route[Math.max(0,Math.min(layoutEditor.point,route.length-1))];
+    return pt||[0,0];
+  }
+  return (cfg[area]&&cfg[area][role])||[0,0];
+}
+function setLayoutDirty(refreshSettings=true){
+  layoutEditor.dirty=true;
+  layoutEditor.copied=false;
+  layoutEditor.saved=false;
+  layoutEditor.saveError='';
+  stagePositions=cloneLayoutConfig(ensureLayoutDraft());
+  scheduleLayoutSave();
+  if(refreshSettings){
+    renderStage();
+    renderS();
+  }else{
+    renderLayoutOverlay();
+  }
+}
+function setSettingsTab(tab){
+  settingsTab=tab;
+  if(tab==='layout')ensureLayoutDraft();
+  syncLayoutEditing();
+  renderS();
+  renderStage();
+}
+function setLayoutKind(kind){
+  layoutEditor.kind=kind;
+  if(!layoutAreaOptions().includes(layoutEditor.area))layoutEditor.area=layoutAreaOptions()[0];
+  layoutEditor.point=0;
+  renderS();
+  renderLayoutOverlay();
+}
+function setLayoutArea(area){
+  layoutEditor.area=area;
+  layoutEditor.point=0;
+  renderS();
+  renderLayoutOverlay();
+}
+function setLayoutRole(role){
+  layoutEditor.role=role;
+  layoutEditor.point=0;
+  renderS();
+  renderLayoutOverlay();
+}
+function setLayoutPoint(point){
+  layoutEditor.point=Math.max(0,Number(point)||0);
+  renderS();
+  renderLayoutOverlay();
+}
+function setLayoutStep(step){
+  layoutEditor.step=Number(step)||.5;
+  renderS();
+}
+function nudgeLayout(dx,dy){
+  const cfg=ensureLayoutDraft(),area=layoutEditor.area,role=layoutEditor.role,step=layoutEditor.step||.5;
+  if(layoutEditor.kind==='route'){
+    cfg.routes=cfg.routes||{};cfg.routes[area]=cfg.routes[area]||{};cfg.routes[area][role]=cfg.routes[area][role]||[];
+    if(!cfg.routes[area][role].length)cfg.routes[area][role].push(stagePair((cfg[area]&&cfg[area][role])||[50,50],null));
+    const route=cfg.routes[area][role];
+    layoutEditor.point=Math.max(0,Math.min(layoutEditor.point,route.length-1));
+    route[layoutEditor.point]=[roundStage(route[layoutEditor.point][0]+dx*step),roundStage(route[layoutEditor.point][1]+dy*step)];
+  }else{
+    cfg[area]=cfg[area]||{};
+    const pair=stagePair(cfg[area][role],(STAGE_POSITION_DEFAULTS[area]&&STAGE_POSITION_DEFAULTS[area][role])||[50,50]);
+    cfg[area][role]=[roundStage(pair[0]+dx*step),roundStage(pair[1]+dy*step)];
+  }
+  setLayoutDirty();
+}
+function addLayoutPoint(){
+  const cfg=ensureLayoutDraft(),area=layoutEditor.area,role=layoutEditor.role;
+  cfg.routes=cfg.routes||{};cfg.routes[area]=cfg.routes[area]||{};cfg.routes[area][role]=cfg.routes[area][role]||[];
+  const route=cfg.routes[area][role];
+  const base=stagePair(route[layoutEditor.point],(cfg[area]&&cfg[area][role])||[50,50]);
+  const idx=Math.min(route.length,layoutEditor.point+1);
+  route.splice(idx,0,[base[0],base[1]]);
+  layoutEditor.point=idx;
+  setLayoutDirty();
+}
+function removeLayoutPoint(){
+  const cfg=ensureLayoutDraft(),area=layoutEditor.area,role=layoutEditor.role;
+  const route=cfg.routes&&cfg.routes[area]&&cfg.routes[area][role];
+  if(!route||route.length<=1)return;
+  route.splice(Math.max(0,Math.min(layoutEditor.point,route.length-1)),1);
+  layoutEditor.point=Math.max(0,Math.min(layoutEditor.point,route.length-1));
+  setLayoutDirty();
+}
+function clampStage(v){
+  return Math.max(0,Math.min(100,roundStage(v)));
+}
+function layoutPointFromEvent(e){
+  const map=document.getElementById('stage-map');
+  const rect=map.getBoundingClientRect();
+  return[
+    clampStage((e.clientX-rect.left)/rect.width*100),
+    clampStage((e.clientY-rect.top)/rect.height*100)
+  ];
+}
+function setLayoutCoord(pair,finalPoint=false,index=layoutEditor.point,refreshSettings=true){
+  const cfg=ensureLayoutDraft(),area=layoutEditor.area,role=layoutEditor.role;
+  if(finalPoint||layoutEditor.kind==='position'){
+    cfg[area]=cfg[area]||{};
+    cfg[area][role]=[pair[0],pair[1]];
+  }else{
+    cfg.routes=cfg.routes||{};cfg.routes[area]=cfg.routes[area]||{};cfg.routes[area][role]=cfg.routes[area][role]||[];
+    const route=cfg.routes[area][role];
+    if(!route.length)route.push(pair);
+    const idx=Math.max(0,Math.min(index,route.length-1));
+    route[idx]=[pair[0],pair[1]];
+    layoutEditor.point=idx;
+  }
+  setLayoutDirty(refreshSettings);
+}
+function selectLayoutPoint(index,finalPoint=false){
+  if(finalPoint){
+    layoutEditor.kind='position';
+  }else{
+    layoutEditor.kind='route';
+    layoutEditor.point=Math.max(0,Number(index)||0);
+  }
+  renderS();
+  renderLayoutOverlay();
+}
+function startLayoutDrag(e){
+  const point=e.target.closest('.edit-point');
+  if(!point)return;
+  e.preventDefault();
+  const finalPoint=point.dataset.final==='1';
+  const index=Number(point.dataset.index)||0;
+  layoutDrag={active:true,index,final:finalPoint,startX:e.clientX,startY:e.clientY,moved:false};
+  if(finalPoint)layoutEditor.kind='position';
+  else{layoutEditor.kind='route';layoutEditor.point=index}
+  point.classList.add('dragging');
+}
+function moveLayoutDrag(e){
+  if(!layoutDrag.active)return;
+  e.preventDefault();
+  const moved=Math.hypot(e.clientX-layoutDrag.startX,e.clientY-layoutDrag.startY)>2;
+  if(!moved&&!layoutDrag.moved)return;
+  layoutDrag.moved=true;
+  setLayoutCoord(layoutPointFromEvent(e),layoutDrag.final,layoutDrag.index,false);
+}
+function endLayoutDrag(e){
+  if(!layoutDrag.active)return;
+  const point=e.target.closest?.('.edit-point');
+  point?.classList.remove('dragging');
+  if(!layoutDrag.moved)selectLayoutPoint(layoutDrag.index,layoutDrag.final);
+  else renderStage();
+  layoutDrag={active:false,index:0,final:false};
+  renderS();
+  renderLayoutOverlay();
+}
+function scheduleLayoutSave(){
+  if(!layoutEditor.autoSave)return;
+  clearTimeout(layoutEditor.saveTimer);
+  layoutEditor.saveTimer=setTimeout(()=>saveLayoutJson(true),700);
+}
+function setLayoutAutoSave(value){
+  layoutEditor.autoSave=!!value;
+  if(layoutEditor.autoSave&&layoutEditor.dirty)scheduleLayoutSave();
+  renderS();
+}
+async function saveLayoutJson(auto=false){
+  clearTimeout(layoutEditor.saveTimer);
+  layoutEditor.saving=true;
+  layoutEditor.saved=false;
+  layoutEditor.saveError='';
+  if(!auto)renderS();
+  try{
+    const r=await fetch('data/stage-positions.json',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:layoutJsonText()
+    });
+    const payload=await r.json().catch(()=>({}));
+    if(!r.ok||!payload.ok)throw new Error(payload.error||'Save failed');
+    layoutEditor.dirty=false;
+    layoutEditor.saved=true;
+  }catch(e){
+    layoutEditor.saveError=e.message||'Save failed';
+  }finally{
+    layoutEditor.saving=false;
+    renderS();
+  }
+}
+async function copyLayoutJson(){
+  const txt=layoutJsonText();
+  try{await navigator.clipboard.writeText(txt);layoutEditor.copied=true}catch(e){layoutEditor.copied=false}
+  renderS();
+}
+async function reloadLayoutFromFile(){
+  clearTimeout(layoutEditor.saveTimer);
+  layoutEditor.dirty=false;
+  layoutEditor.saving=false;
+  layoutEditor.saved=false;
+  layoutEditor.saveError='';
+  layoutEditor.draft=null;
+  try{
+    const r=await fetch('data/stage-positions.json?t='+Date.now());
+    if(r.ok)applyStagePositions(await r.json());
+  }catch(e){}
+  layoutEditor.draft=cloneLayoutConfig(stagePositions);
+  renderStage();
+  renderS();
+}
 async function fetchAll(){
   try{
-    const[ar,kr,er,acr,tr]=await Promise.all([fetch('data/agents.json?t='+Date.now()),fetch('data/kanban.json?t='+Date.now()),fetch('data/artifacts.json?t='+Date.now()),fetch('data/activity.json?t='+Date.now()),fetch('data/token-usage.json?t='+Date.now()).catch(()=>null)]);
+    const ts=Date.now();
+    const[ar,kr,er,acr,tr,spr]=await Promise.all([fetch('data/agents.json?t='+ts),fetch('data/kanban.json?t='+ts),fetch('data/artifacts.json?t='+ts),fetch('data/activity.json?t='+ts),fetch('data/token-usage.json?t='+ts).catch(()=>null),fetch('data/stage-positions.json?t='+ts).catch(()=>null)]);
     if(!ar.ok||!kr.ok||!er.ok||!acr.ok)throw new Error('dashboard data request failed');
     const[ad,kd,ed,acd]=await Promise.all([ar.json(),kr.json(),er.json(),acr.json()]);
     tokenData=tr&&tr.ok?await tr.json():{agents:[],models:[],totals:{totalTokens:0}};
+    if(spr&&spr.ok&&!layoutEditor.dirty){
+      try{applyStagePositions(await spr.json())}catch(e){}
+    }
+    else if(spr&&spr.status===404&&!layoutEditor.dirty)stagePositions=STAGE_POSITION_DEFAULTS;
     updateDataFreshness(ad.meta||{});
     const list=(ad.agents||ad).map(a=>({...a,status:norm(a.status)}));
     list.forEach(a=>{const bl=blocker(a);if(bl.is)a.status='blocked'});
@@ -1075,40 +1524,27 @@ async function fetchAll(){
   renderSB();renderW();renderS();renderStage();renderActivityChat();renderTokenCard();renderMeetingStatus();
 }
 
+function stageIntent(a){
+  if(meetingSim||a.location==='meeting')return'meeting';
+  if(a.location==='talk')return'talk';
+  if(a.location==='lounge')return'lounge';
+  return'base';
+}
 function stagePos(a){
-  if(meetingSim){
-    const meet={
-      frontend:[45.5,23.5],
-      backend:[49,22.5],
-      qa:[52.5,21.5],
-      pm:[47.5,31.5],
-      designer:[51.5,30],
-      techlead:[54.5,30.5]
-    };
-    return meet[a.id]||[51,33];
+  const pos=stagePositions||STAGE_POSITION_DEFAULTS;
+  const intent=stageIntent(a);
+  if(intent==='meeting'){
+    return pos.meeting[a.id]||pos.fallback.meeting||[51,33];
   }
-  const base={
-    pm:[22.5,27],
-    designer:[78,24],
-    frontend:[42,59],
-    backend:[47,75],
-    qa:[82,49],
-    techlead:[82.5,73]
-  };
-  const p=base[a.id]||[50,50];
-  if(a.location==='meeting'){
-    const meet={
-      frontend:[45.5,23.5],
-      backend:[49,22.5],
-      qa:[52.5,21.5],
-      pm:[47.5,31.5],
-      designer:[51.5,30],
-      techlead:[54.5,30.5]
-    };
-    return meet[a.id]||[51,33];
+  const p=pos.base[a.id]||pos.fallback.base||[50,50];
+  if(intent==='talk'){
+    return pos.talk[a.id]||pos.fallback.talk||[50,37];
   }
-  if(a.location==='lounge')return[24,63];
-  if(norm(a.status)==='blocked')return[p[0]+1.2,p[1]+1.4];
+  if(intent==='lounge')return pos.fallback.lounge||[24,63];
+  if(norm(a.status)==='blocked'){
+    const off=pos.fallback.blockedOffset||[1.2,1.4];
+    return[p[0]+off[0],p[1]+off[1]];
+  }
   return p;
 }
 function toggleMeeting(force){
@@ -1153,11 +1589,120 @@ function renderOccluders(){
   });
   Object.keys(occluders).forEach(id=>{if(!seen.has(id)){occluders[id].remove();delete occluders[id]}});
 }
+function stageDist(a,b){
+  if(!a||!b)return 0;
+  return Math.hypot((a[0]||0)-(b[0]||0),(a[1]||0)-(b[1]||0));
+}
+function stageRouteFor(id,intent){
+  const routes=(stagePositions&&stagePositions.routes)||STAGE_POSITION_DEFAULTS.routes;
+  const group=routes&&routes[intent];
+  return group?(group[id]||group.default||[]):[];
+}
+function cleanStagePath(points,from){
+  const out=[];
+  let last=from;
+  (points||[]).forEach(pt=>{
+    const pair=stagePair(pt,null);
+    if(pair&&stageDist(last,pair)>.55){
+      out.push(pair);
+      last=pair;
+    }
+  });
+  return out;
+}
+function buildStagePath(id,from,target,intent,prevIntent){
+  if(!from||!target)return[target];
+  if(intent==='base'&&prevIntent==='base')return[target];
+  const route=stageRouteFor(id,intent);
+  if(!route.length)return[target];
+  let start=0,best=Infinity;
+  route.forEach((pt,i)=>{
+    const d=stageDist(from,pt);
+    if(d<best){best=d;start=i}
+  });
+  return cleanStagePath(route.slice(start).concat([target]),from);
+}
+function syncLayoutEditing(){
+  const active=document.getElementById('sm')?.classList.contains('open')&&settingsTab==='layout';
+  document.body.classList.toggle('layout-editing',!!active);
+  renderLayoutOverlay();
+}
+function renderLayoutOverlay(){
+  const el=document.getElementById('layout-edit-layer');if(!el)return;
+  const active=document.getElementById('sm')?.classList.contains('open')&&settingsTab==='layout';
+  if(!active){el.innerHTML='';return}
+  const cfg=ensureLayoutDraft(),area=layoutEditor.area,role=layoutEditor.role;
+  const final=(cfg[area]&&cfg[area][role])||null;
+  let points=[];
+  if(layoutEditor.kind==='route'){
+    points=[...((((cfg.routes||{})[area]||{})[role])||[])];
+    if(final)points.push(final);
+  }else if(final){
+    points=[final];
+  }
+  const areas=[],lines=[];
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1],b=points[i],dx=b[0]-a[0],dy=(b[1]-a[1])*(2/3);
+    const width=Math.hypot(dx,dy),angle=Math.atan2(dy,dx);
+    areas.push(`<span class="edit-area-line" style="left:${a[0]}%;top:${a[1]}%;width:${width}%;transform:translateY(-50%) rotate(${angle}rad)"></span>`);
+    lines.push(`<span class="edit-line" style="left:${a[0]}%;top:${a[1]}%;width:${width}%;transform:translateY(-50%) rotate(${angle}rad)"></span>`);
+  }
+  const nodes=points.map((p,i)=>{
+    const finalPoint=layoutEditor.kind==='route'&&i===points.length-1&&final;
+    const positionPoint=layoutEditor.kind==='position';
+    const activePoint=positionPoint||i===layoutEditor.point;
+    const label=finalPoint?'F':String(i+1);
+    return`<span class="edit-point ${activePoint?'active':''} ${finalPoint||positionPoint?'final':''}" data-index="${i}" data-final="${finalPoint||positionPoint?'1':'0'}" style="left:${p[0]}%;top:${p[1]}%">${label}</span>`;
+  });
+  el.innerHTML=areas.join('')+lines.join('')+nodes.join('');
+}
+function setStageNodePos(row){
+  if(!row||!row.node||!row.p)return;
+  row.node.style.left=row.p[0]+'%';
+  row.node.style.top=row.p[1]+'%';
+}
+function startStageMotion(){
+  if(stageMotion.raf)return;
+  stageMotion.last=0;
+  stageMotion.raf=requestAnimationFrame(tickStageMotion);
+}
+function tickStageMotion(t){
+  const dt=stageMotion.last?Math.min(80,t-stageMotion.last):16;
+  stageMotion.last=t;
+  let active=false;
+  Object.values(stageAgents).forEach(row=>{
+    if(!row||!row.node||!row.p||!row.target)return;
+    const dest=(row.path&&row.path.length?row.path[0]:row.target);
+    const dx=dest[0]-row.p[0],dy=dest[1]-row.p[1],d=Math.hypot(dx,dy);
+    if(d>.05){
+      const step=Math.min(d,STAGE_WALK_SPEED*dt/1000);
+      row.p=[row.p[0]+dx/d*step,row.p[1]+dy/d*step];
+      row.moving=true;
+      row.node.classList.add('walking');
+      setStageNodePos(row);
+      active=true;
+    }else{
+      row.p=[dest[0],dest[1]];
+      setStageNodePos(row);
+      if(row.path&&row.path.length)row.path.shift();
+      if(row.path&&row.path.length){
+        row.moving=true;
+        row.node.classList.add('walking');
+        active=true;
+      }else if(row.moving){
+        row.moving=false;
+        row.node.classList.remove('walking');
+      }
+    }
+  });
+  if(active)stageMotion.raf=requestAnimationFrame(tickStageMotion);
+  else{stageMotion.raf=0;stageMotion.last=0}
+}
 function renderStage(){
   const el=document.getElementById('agent-layer');if(!el)return;
   const seen=new Set();
   _ad.forEach(a=>{
-    const id=a.id,p=stagePos(a),n=norm(a.status),c=a.color||'#6bc';
+    const id=a.id,p=stagePos(a),intent=stageIntent(a),n=norm(a.status),c=a.color||'#6bc';
     let row=stageAgents[id],node=row&&row.node;
     if(!node){
       node=document.createElement('div');
@@ -1173,17 +1718,30 @@ function renderStage(){
           <span class="oahair"></span><span class="oabadge"></span>
         </div>`;
       el.appendChild(node);
-      row=stageAgents[id]={node,p};
+      row=stageAgents[id]={node,p:[p[0],p[1]],target:[p[0],p[1]],path:[],moving:false,intent};
+      setStageNodePos(row);
     }
-    const moved=Math.hypot((row.p?.[0]??p[0])-p[0],(row.p?.[1]??p[1])-p[1])>.5;
-    node.style.left=p[0]+'%';node.style.top=p[1]+'%';
+    if(!row.p)row.p=[p[0],p[1]];
+    if(!row.target)row.target=[p[0],p[1]];
+    if(stageDist(row.target,p)>.2||row.intent!==intent){
+      const prevIntent=row.intent||intent;
+      row.target=[p[0],p[1]];
+      row.path=buildStagePath(id,row.p,row.target,intent,prevIntent);
+      row.intent=intent;
+      if(stageDist(row.p,row.target)>.05){
+        row.moving=true;
+        startStageMotion();
+      }
+    }
+    const moved=row.moving||stageDist(row.p,row.target)>.05;
+    setStageNodePos(row);
     node.style.setProperty('--agent',c);
     node.style.setProperty('--hair',a.hairColor||'#2b1f1a');
     node.style.setProperty('--skin',a.skin||'#f1c27d');
     node.style.setProperty('--pants',a.pants||'#26324f');
     node.style.setProperty('--shoes',a.shoes||'#151a2d');
     node.style.setProperty('--tail',/pony|bun|long/i.test(a.hair||'')?'block':'none');
-    node.className='oa '+id+' '+n+(meetingSim?' meeting':'')+(moved?' walking':'')+(selectedId===id?' focus':'');
+    node.className='oa '+id+' '+n+(meetingSim?' meeting':'')+(backSeatNow(a)?' backseat':'')+(meetingFaceNow(a)?' meetingface':'')+(moved?' walking':'')+(talkingNow(a)?' talking':'')+(selectedId===id?' focus':'');
     const name=node.querySelector('.oaname'),dot=node.querySelector('.oadot'),badge=node.querySelector('.oabadge'),bubble=node.querySelector('.oabubble'),sig=node.querySelector('.oasig'),txt=node.querySelector('.oatxt');
     if(name)name.textContent=(a.name||a.id).replace(/ Engineer| Manager| Designer/g,'');
     if(dot)dot.className='oadot '+n;
@@ -1192,11 +1750,11 @@ function renderStage(){
     if(bubble)bubble.className='oabubble '+sw.n;
     if(sig)sig.textContent=sw.sig;
     if(txt)txt.textContent=sw.txt;
-    if(moved){clearTimeout(row.timer);row.timer=setTimeout(()=>node.classList.remove('walking'),950)}
-    row.p=p;seen.add(id);
+    seen.add(id);
   });
   Object.keys(stageAgents).forEach(id=>{if(!seen.has(id)){stageAgents[id].node.remove();delete stageAgents[id]}});
   renderOccluders();
+  renderLayoutOverlay();
   applyStageView();
   drawMinimap();
   renderMeetingStatus();
@@ -1358,8 +1916,8 @@ function openTD(id){
 }
 
 // ── SETTINGS MODAL ──
-function openS(){document.getElementById('sm').classList.add('open');loadAgentFiles().catch(()=>null).finally(renderS)}
-function closeS(){document.getElementById('sm').classList.remove('open')}
+function openS(){document.getElementById('sm').classList.add('open');syncLayoutEditing();loadAgentFiles().catch(()=>null).finally(renderS)}
+function closeS(){document.getElementById('sm').classList.remove('open');syncLayoutEditing()}
 function resetMeetingAuto(){manualMeeting=false;meetingSim=false;renderS();renderStage()}
 async function loadAgentFiles(){
   if(agentFileManifest)return agentFileManifest;
@@ -1368,10 +1926,94 @@ async function loadAgentFiles(){
   return agentFileManifest;
 }
 function openAgentFile(p,t){openDc(p,t)}
+function settingTabs(){
+  return`<div class="layout-tabs">
+    <button class="cfgbtn ${settingsTab==='agents'?'on':''}" onclick="setSettingsTab('agents')">Agents</button>
+    <button class="cfgbtn ${settingsTab==='layout'?'on':''}" onclick="setSettingsTab('layout')">Layout editor</button>
+  </div>`;
+}
+function optList(vals,current){
+  return vals.map(v=>`<option value="${escA(v)}" ${v===current?'selected':''}>${esc(v)}</option>`).join('');
+}
+function roleLabel(id){
+  return({pm:'PM',designer:'Design',frontend:'Frontend',backend:'Backend',qa:'QA',techlead:'Tech Lead'}[id]||id);
+}
+function choiceButtons(vals,current,fn,extra=''){
+  return`<div class="layout-choice-grid ${extra}">${vals.map(v=>`<button class="cfgbtn ${v===current?'on':''}" onclick="${fn}('${escA(v)}')">${esc(roleLabel(v))}</button>`).join('')}</div>`;
+}
+function routePointOptions(route){
+  return route.map((_,i)=>`<option value="${i}" ${i===layoutEditor.point?'selected':''}>Point ${i+1}</option>`).join('');
+}
+function renderLayoutEditor(){
+  ensureLayoutDraft();
+  const roles=REQUIRED_WORK_AGENT_IDS;
+  const areas=layoutAreaOptions();
+  if(!areas.includes(layoutEditor.area))layoutEditor.area=areas[0];
+  if(!roles.includes(layoutEditor.role))layoutEditor.role=roles[0];
+  const cfg=ensureLayoutDraft(),area=layoutEditor.area,role=layoutEditor.role;
+  const route=((((cfg.routes||{})[area]||{})[role])||[]);
+  if(layoutEditor.kind==='route')layoutEditor.point=Math.max(0,Math.min(layoutEditor.point,Math.max(0,route.length-1)));
+  const pair=selectedLayoutPair();
+  const final=(cfg[area]&&cfg[area][role])||[];
+  const routeControls=layoutEditor.kind==='route'?`
+    <div class="layout-field"><label>Route point</label><select onchange="setLayoutPoint(this.value)">${routePointOptions(route)||'<option value="0">Point 1</option>'}</select></div>
+    <div class="layout-actions">
+      <button class="cfgbtn" onclick="addLayoutPoint()">Add point after</button>
+      <button class="cfgbtn" onclick="removeLayoutPoint()">Remove point</button>
+    </div>
+    <div class="layout-note">Route points: ${route.length}</div>`:'<div class="layout-note">Final position</div>';
+  return`${settingTabs()}
+  <div class="layout-panel">
+    <div class="layout-side">
+      <div class="layout-segs">
+        <button class="cfgbtn ${layoutEditor.kind==='position'?'on':''}" onclick="setLayoutKind('position')">Position</button>
+        <button class="cfgbtn ${layoutEditor.kind==='route'?'on':''}" onclick="setLayoutKind('route')">Walk route</button>
+      </div>
+      <div class="layout-field"><label>Area</label>${choiceButtons(areas,layoutEditor.area,'setLayoutArea','area')}</div>
+      <div class="layout-field"><label>Role</label>${choiceButtons(roles,layoutEditor.role,'setLayoutRole')}</div>
+      ${routeControls}
+      <div class="layout-field"><label>Step</label><select onchange="setLayoutStep(this.value)">
+        <option value="0.1" ${layoutEditor.step===.1?'selected':''}>0.1</option>
+        <option value="0.5" ${layoutEditor.step===.5?'selected':''}>0.5</option>
+        <option value="1" ${layoutEditor.step===1?'selected':''}>1</option>
+        <option value="2" ${layoutEditor.step===2?'selected':''}>2</option>
+      </select></div>
+      <div class="layout-readout">
+        <div class="layout-num"><span>Left</span><strong>${esc(String(pair[0]??''))}</strong></div>
+        <div class="layout-num"><span>Top</span><strong>${esc(String(pair[1]??''))}</strong></div>
+      </div>
+      <div class="nudge-grid">
+        <span class="blank"></span><button onclick="nudgeLayout(0,-1)">↑</button><span class="blank"></span>
+        <button onclick="nudgeLayout(-1,0)">←</button><span class="blank"></span><button onclick="nudgeLayout(1,0)">→</button>
+        <span class="blank"></span><button onclick="nudgeLayout(0,1)">↓</button><span class="blank"></span>
+      </div>
+      <div class="layout-note">Final ${esc(role)} / ${esc(area)}: [${esc(String(final[0]??''))}, ${esc(String(final[1]??''))}]</div>
+    </div>
+    <div class="layout-main">
+      <div class="layout-actions">
+        <button class="cfgbtn ${layoutEditor.autoSave?'on':''}" onclick="setLayoutAutoSave(!layoutEditor.autoSave)">Auto save</button>
+        <button class="cfgbtn" onclick="saveLayoutJson()">Save JSON</button>
+        <button class="cfgbtn" onclick="copyLayoutJson()">Copy JSON</button>
+        <button class="cfgbtn" onclick="reloadLayoutFromFile()">Reload from file</button>
+        <button class="cfgbtn" onclick="toggleMeeting(true)">Preview meeting</button>
+        <button class="cfgbtn" onclick="resetMeetingAuto()">Auto meeting mode</button>
+        ${layoutEditor.saving?'<span class="layout-dirty">Saving...</span>':''}
+        ${layoutEditor.saved?'<span class="layout-saved">Saved</span>':''}
+        ${layoutEditor.saveError?`<span class="layout-error">${esc(layoutEditor.saveError)}</span>`:''}
+        ${layoutEditor.dirty&&!layoutEditor.saving?'<span class="layout-dirty">Unsaved changes</span>':''}
+        ${layoutEditor.copied?'<span class="layout-dirty">Copied</span>':''}
+      </div>
+      <div class="layout-note">ui/dashboard/data/stage-positions.json</div>
+      <textarea class="layout-json" readonly>${esc(layoutJsonText())}</textarea>
+    </div>
+  </div>`;
+}
 function renderS(){
   const el=document.getElementById('scfg');if(!el)return;
+  syncLayoutEditing();
   const btn=document.getElementById('stmeet');
   if(btn){btn.classList.toggle('on',meetingSim);btn.textContent=meetingSim?'Test meeting: on':'Test meeting'}
+  if(settingsTab==='layout'){el.innerHTML=renderLayoutEditor();renderLayoutOverlay();return}
   const manifest=(agentFileManifest&&agentFileManifest.agents)||[];
   const filesByAgent=Object.fromEntries(manifest.map(x=>[x.id,x.files||[]]));
   const agentsRows=(_ad||[]).map(a=>{
@@ -1393,7 +2035,7 @@ function renderS(){
       <div class="cfgfiles">${fileBtns||'<span class="cfgempty">No files mirrored</span>'}</div>
     </div>`;
   }).join('');
-  el.innerHTML=`<div class="cfgbar">
+  el.innerHTML=`${settingTabs()}<div class="cfgbar">
     <button class="cfgbtn" onclick="resetMeetingAuto()">Auto meeting mode</button>
     <span style="color:#8b949e;font-size:12px">Meeting activates automatically when agent data shows conversation or meeting location.</span>
   </div><div class="cfggrid">${agentsRows||'<div class="ecol">ยังไม่มี agent config</div>'}</div>`;
@@ -1461,6 +2103,9 @@ function openDc(p,t){
 }
 function closeD(){document.getElementById('dv').style.display='none'}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeI();closeD();closeW();closeS()}});
+window.addEventListener('pointermove',moveLayoutDrag);
+window.addEventListener('pointerup',endLayoutDrag);
+window.addEventListener('pointercancel',endLayoutDrag);
 
 let appVersion='';
 async function checkAppVersion(){

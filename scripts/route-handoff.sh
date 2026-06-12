@@ -160,12 +160,12 @@ if [ "${ROUTE_DETACHED:-1}" = "1" ]; then
   mkdir -p "$DELIVERY_LOG_DIR"
   DELIVERY_LOG="$DELIVERY_LOG_DIR/${STAMP}-${FROM}-to-${TO}.log"
   (
-    "$REPO_ROOT/scripts/send-task.sh" "$TO" "$MESSAGE"
+    COMPANY_SEND_FROM="$FROM" COMPANY_WORKFLOW_ID="$WORKFLOW_ID" "$REPO_ROOT/scripts/send-task.sh" "$TO" "$MESSAGE"
   ) >"$DELIVERY_LOG" 2>&1 &
   DELIVERY_PID=$!
   echo "Delivery to $TO started in background (pid $DELIVERY_PID, log $DELIVERY_LOG)" >&2
 else
-  "$REPO_ROOT/scripts/send-task.sh" "$TO" "$MESSAGE"
+  COMPANY_SEND_FROM="$FROM" COMPANY_WORKFLOW_ID="$WORKFLOW_ID" "$REPO_ROOT/scripts/send-task.sh" "$TO" "$MESSAGE"
 fi
 
 echo "$HANDOFF_FILE"

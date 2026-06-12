@@ -87,7 +87,7 @@ Do not fan out to every role at once. The company routing scripts throttle sends
 EOF
 )"
 
-"$REPO_ROOT/scripts/send-task.sh" pm "$PM_MESSAGE"
+COMPANY_SEND_FROM="human" COMPANY_WORKFLOW_ID="$WORKFLOW_ID" "$REPO_ROOT/scripts/send-task.sh" pm "$PM_MESSAGE"
 
 echo "Started workflow: $WORKFLOW_ID"
 echo "Workflow file: $WORKFLOW_DIR/WORKFLOW.md"

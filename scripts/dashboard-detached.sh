@@ -36,23 +36,45 @@ done
 
 mkdir -p "$SERVE_DIR"
 
-existing_pid="$(pgrep -f "^python3 -m http.server ${PORT}$" | head -1 || true)"
+find_dashboard_pid() {
+  lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | head -1 || true
+}
+
+is_dashboard_http() {
+  curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1 ||
+    curl -fsS "http://127.0.0.1:${PORT}/data/app-version.json" >/dev/null 2>&1
+}
+
+existing_pid="$(find_dashboard_pid)"
 if [ -n "$existing_pid" ]; then
-  if curl -fsS "http://127.0.0.1:${PORT}" >/dev/null 2>&1; then
+  if is_dashboard_http; then
     echo "$existing_pid" > "$SERVE_DIR/server.pid"
     echo "Dashboard already running: http://127.0.0.1:${PORT} (pid ${existing_pid})"
     exit 0
   fi
-  kill "$existing_pid" 2>/dev/null || true
+  echo "ERROR: port ${PORT} is already in use by pid ${existing_pid}, but it does not look like the dashboard." >&2
+  echo "Stop that process or choose another port with --port." >&2
+  exit 1
 fi
 
-setsid -f bash -c "
-  cd '$REPO_ROOT'
-  exec ./scripts/dashboard.sh --port '$PORT' --interval '$REFRESH_INTERVAL' >> '$SERVE_DIR/server.log' 2>&1
-"
+if command -v setsid >/dev/null 2>&1; then
+  setsid -f bash -c "
+    cd '$REPO_ROOT'
+    exec ./scripts/dashboard.sh --port '$PORT' --interval '$REFRESH_INTERVAL' >> '$SERVE_DIR/server.log' 2>&1
+  "
+else
+  nohup bash -c "
+    cd '$REPO_ROOT'
+    exec ./scripts/dashboard.sh --port '$PORT' --interval '$REFRESH_INTERVAL' >> '$SERVE_DIR/server.log' 2>&1
+  " >/dev/null 2>&1 &
+fi
 
-sleep 2
-pid="$(pgrep -f "^python3 -m http.server ${PORT}$" | head -1 || true)"
+pid=""
+for _ in 1 2 3 4 5; do
+  sleep 1
+  pid="$(find_dashboard_pid)"
+  [ -n "$pid" ] && break
+done
 if [ -z "$pid" ]; then
   echo "Dashboard failed to start. Last log lines:" >&2
   tail -40 "$SERVE_DIR/server.log" >&2 || true
@@ -60,5 +82,5 @@ if [ -z "$pid" ]; then
 fi
 
 echo "$pid" > "$SERVE_DIR/server.pid"
-curl -fsS "http://127.0.0.1:${PORT}" >/dev/null
+is_dashboard_http
 echo "Dashboard: http://127.0.0.1:${PORT} (pid ${pid})"

@@ -23,6 +23,7 @@ done
 SHARED_ROOT="${SHARED_ROOT:-$DEFAULT_OPENCLAW_HOME/shared/agents}"
 WORKFLOW_ROOT="${WORKFLOW_ROOT:-$DEFAULT_OPENCLAW_HOME/shared/company-workflows}"
 OUTBOX_ROOT="${OUTBOX_ROOT:-$DEFAULT_OPENCLAW_HOME/shared/company-outbox}"
+ACTIVITY_ROOT="${ACTIVITY_ROOT:-$DEFAULT_OPENCLAW_HOME/shared/company-activity}"
 
 # If explicit roots are stale, fall back to the resolved runtime root.
 if [ ! -d "$SHARED_ROOT" ]; then
@@ -34,7 +35,10 @@ fi
 if [ ! -d "$OUTBOX_ROOT" ]; then
   OUTBOX_ROOT="$DEFAULT_OPENCLAW_HOME/shared/company-outbox"
 fi
-export OPENCLAW_STATE_DIR="$DEFAULT_OPENCLAW_HOME" WORKFLOW_ROOT OUTBOX_ROOT
+if [ ! -d "$ACTIVITY_ROOT" ]; then
+  ACTIVITY_ROOT="$DEFAULT_OPENCLAW_HOME/shared/company-activity"
+fi
+export OPENCLAW_STATE_DIR="$DEFAULT_OPENCLAW_HOME" WORKFLOW_ROOT OUTBOX_ROOT ACTIVITY_ROOT
 OUT_DIR="${DASHBOARD_DATA_DIR:-$REPO_ROOT/ui/dashboard/data}"
 OUT_FILE="$OUT_DIR/agents.json"
 SCREEN_DIR="$OUT_DIR/screenshots"
@@ -57,6 +61,8 @@ if not Path(os.environ.get('WORKFLOW_ROOT', '')).is_dir():
     os.environ['WORKFLOW_ROOT'] = str(state_root / 'shared' / 'company-workflows')
 if not Path(os.environ.get('OUTBOX_ROOT', '')).is_dir():
     os.environ['OUTBOX_ROOT'] = str(state_root / 'shared' / 'company-outbox')
+if not Path(os.environ.get('ACTIVITY_ROOT', '')).is_dir():
+    os.environ['ACTIVITY_ROOT'] = str(state_root / 'shared' / 'company-activity')
 config = json.load(open(config_path))
 agents_config = {a['id']: a for a in config.get('agents', [])}
 rooms = config.get('rooms', [])
@@ -89,6 +95,7 @@ def generated_meta(source_status='ok', warnings=None, **extra):
             'sharedAgents': shared_root,
             'workflows': os.environ.get('WORKFLOW_ROOT', str(Path.home() / '.openclaw' / 'shared' / 'company-workflows')),
             'outbox': os.environ.get('OUTBOX_ROOT', str(Path.home() / '.openclaw' / 'shared' / 'company-outbox')),
+            'activity': os.environ.get('ACTIVITY_ROOT', str(Path.home() / '.openclaw' / 'shared' / 'company-activity')),
         },
         'warnings': warnings or [],
     }
@@ -103,6 +110,60 @@ def parse_ts(value):
         return datetime.datetime.fromisoformat(normalized)
     except Exception:
         return None
+
+TASK_TALK_SECONDS = int(os.environ.get('DASHBOARD_TASK_TALK_SECONDS', '180'))
+activity_root = Path(os.environ.get('ACTIVITY_ROOT', str(state_root / 'shared' / 'company-activity')))
+
+def task_event_preview(event):
+    text = re.sub(r'\s+', ' ', event.get('summary', '') or '').strip()
+    return text[:160] or f"Task sent to {event.get('to', 'agent')}"
+
+def task_event_age_seconds(event):
+    dt = parse_ts(event.get('ts', ''))
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return max(0, int((utc_now() - dt.astimezone(datetime.timezone.utc)).total_seconds()))
+
+def is_recent_task_event(event):
+    age = task_event_age_seconds(event)
+    return age is not None and age <= TASK_TALK_SECONDS
+
+def load_task_send_events():
+    path = activity_root / 'task-sends.ndjson'
+    if not path.exists():
+        return []
+    dedup = {}
+    try:
+        lines = path.read_text(encoding='utf-8', errors='ignore').splitlines()[-500:]
+    except Exception:
+        return []
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except Exception:
+            continue
+        if not event.get('to'):
+            continue
+        event.setdefault('kind', 'task_sent')
+        event.setdefault('type', 'task_sent')
+        event.setdefault('from', 'human')
+        event.setdefault('summary', task_event_preview(event))
+        key = event.get('sendId') or f"{event.get('ts', '')}:{event.get('from', '')}:{event.get('to', '')}:{event.get('summary', '')}"
+        prev = dedup.get(key)
+        if not prev or (event.get('ts', '') >= prev.get('ts', '')):
+            dedup[key] = event
+    return sorted(dedup.values(), key=lambda e: e.get('ts', ''), reverse=True)
+
+task_send_events = load_task_send_events()
+latest_task_by_agent = {}
+for event in task_send_events:
+    target = event.get('to')
+    if target and target not in latest_task_by_agent:
+        latest_task_by_agent[target] = event
 
 def stale_summary(updated, status):
     dt = parse_ts(updated)
@@ -333,11 +394,50 @@ for slug, acfg in agents_config.items():
         next_action = ''
         status, objective, last_output, updated, location, thought = 'offline', 'No status', 'N/A', 'never', 'desk', 'not online yet'
 
+    recent_task = None
+    latest_task = latest_task_by_agent.get(slug)
+    if latest_task:
+        task_age = task_event_age_seconds(latest_task)
+        task_is_recent = task_age is not None and task_age <= TASK_TALK_SECONDS
+        task_preview = task_event_preview(latest_task)
+        recent_task = {
+            'sendId': latest_task.get('sendId', ''),
+            'from': latest_task.get('from', 'human'),
+            'to': latest_task.get('to', slug),
+            'workflowId': latest_task.get('workflowId', ''),
+            'summary': task_preview,
+            'delivery': latest_task.get('delivery', ''),
+            'detail': latest_task.get('detail', ''),
+            'sentAt': latest_task.get('ts', ''),
+            'ageSeconds': task_age,
+            'isRecent': bool(task_is_recent),
+        }
+        if task_is_recent:
+            location = 'talk'
+            thought = f"New task: {task_preview[:72]}"
+            if status in ('idle', 'offline', 'done'):
+                status = 'working'
+            if objective in ('Waiting for next task', 'No status', 'initialized and waiting for tasks'):
+                objective = task_preview[:160]
+            if not next_action:
+                next_action = task_preview[:160]
+            if last_output in ('N/A', 'No recent output', 'agent initialized', ''):
+                last_output = f"Task received from {recent_task['from']}: {task_preview[:160]}"
+            event_dt = parse_ts(latest_task.get('ts', ''))
+            updated_dt = parse_ts(updated)
+            if event_dt and event_dt.tzinfo is None:
+                event_dt = event_dt.replace(tzinfo=datetime.timezone.utc)
+            if updated_dt and updated_dt.tzinfo is None:
+                updated_dt = updated_dt.replace(tzinfo=datetime.timezone.utc)
+            if event_dt and (not updated_dt or event_dt > updated_dt):
+                updated = latest_task.get('ts', updated)
+
     items.append({
         'id': slug, 'name': acfg.get('name', slug), 'emoji': acfg.get('emoji', '🤖'),
         'role': acfg.get('role', ''), 'status': status, 'objective': objective,
         'nextAction': next_action, 'lastOutput': last_output, 'updatedAt': updated, 'location': location,
         'speech': thought, 'thought': thought,
+        'recentTask': recent_task,
         'blocker': blocker_from_status(status, text, next_action),
         'stale': stale_summary(updated, status),
         'evidenceLinks': [],
@@ -428,6 +528,19 @@ for slug, acfg in agents_config.items():
 
     next_action = (parse_section(text, 'Next Action') or parse_section(text, 'Next Steps') or parse_kv(text, 'Next Action') or '').strip()
     last_output = (parse_section(text, 'Last Meaningful Output') or parse_section(text, 'Summary') or parse_kv(text, 'Last Meaningful Output') or '').strip()
+    recent_card_task = latest_task_by_agent.get(slug)
+    recent_card_preview = ''
+    if recent_card_task and is_recent_task_event(recent_card_task):
+        recent_card_preview = task_event_preview(recent_card_task)
+        if raw_status in ('idle', 'offline', 'done'):
+            raw_status = 'working'
+            status_literal = 'working'
+        if task in ('Waiting for next task', 'No status', 'initialized and waiting for tasks'):
+            task = recent_card_preview
+        if not next_action:
+            next_action = recent_card_preview
+        if not last_output:
+            last_output = f"Task received from {recent_card_task.get('from', 'human')}: {recent_card_preview}"
     work_item = (parse_section(text, 'Work Item') or parse_kv(text, 'Work Item') or '').strip()
     if not work_item or work_item in ('none', 'unknown'):
         guessed = infer_work_item(task, next_action, last_output)
@@ -480,6 +593,13 @@ for slug, acfg in agents_config.items():
         age_minutes = int((utc_now() - datetime.datetime.fromtimestamp(status_file.stat().st_mtime, datetime.timezone.utc)).total_seconds() // 60)
     except Exception:
         age_minutes = None
+    if recent_card_task and is_recent_task_event(recent_card_task):
+        task_age_seconds = task_event_age_seconds(recent_card_task)
+        if task_age_seconds is not None:
+            age_minutes = task_age_seconds // 60
+    card_updated_at = path_mtime_iso(status_file)
+    if recent_card_task and is_recent_task_event(recent_card_task):
+        card_updated_at = recent_card_task.get('ts') or card_updated_at
 
     if age_minutes is not None:
         if raw_status == 'working' and age_minutes >= 30:
@@ -644,6 +764,16 @@ for slug, acfg in agents_config.items():
         'plan': plan_short,
         'nextAction': next_action[:200],
         'lastOutput': last_output[:200],
+        'recentTask': {
+            'sendId': recent_card_task.get('sendId', ''),
+            'from': recent_card_task.get('from', 'human'),
+            'workflowId': recent_card_task.get('workflowId', ''),
+            'summary': task_event_preview(recent_card_task),
+            'delivery': recent_card_task.get('delivery', ''),
+            'sentAt': recent_card_task.get('ts', ''),
+            'ageSeconds': task_event_age_seconds(recent_card_task),
+            'isRecent': is_recent_task_event(recent_card_task),
+        } if recent_card_task else None,
         'blocker': blocker_from_status(raw_status, text, next_action),
         'stale': {
             'level': 'stale' if any(w['type'] == 'stale' for w in warnings) else 'fresh',
@@ -664,7 +794,7 @@ for slug, acfg in agents_config.items():
             'ownerNotes': [x.strip('- ').strip() for x in owner_notes.split('\n') if x.strip()][:8],
         },
         'role': acfg.get('role', ''),
-        'updatedAt': path_mtime_iso(status_file),
+        'updatedAt': card_updated_at,
         'ageMinutes': age_minutes,
         'screenshots': screenshots,
         'videos': videos,
@@ -1047,6 +1177,19 @@ workflow_root = Path(os.environ.get('WORKFLOW_ROOT', str(Path.home() / '.opencla
 outbox_root = Path(os.environ.get('OUTBOX_ROOT', str(Path.home() / '.openclaw' / 'shared' / 'company-outbox')))
 activities = []
 workflows = []
+
+for event in task_send_events:
+    activities.append({
+        'ts': event.get('ts', ''),
+        'workflowId': event.get('workflowId', '') or 'direct-task',
+        'kind': 'task_sent',
+        'type': 'task_sent',
+        'from': event.get('from', 'human'),
+        'to': event.get('to', ''),
+        'summary': task_event_preview(event),
+        'delivery': event.get('delivery', ''),
+        'sendId': event.get('sendId', ''),
+    })
 
 def read_workflow_objective(workflow_dir):
     wf = workflow_dir / 'WORKFLOW.md'

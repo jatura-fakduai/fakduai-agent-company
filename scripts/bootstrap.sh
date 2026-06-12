@@ -9,6 +9,7 @@ OPENCLAW_STATE_DIR="${OPENCLAW_STATE_DIR:-$WORKSPACE_ROOT}"
 SHARED_ROOT="${SHARED_ROOT:-$OPENCLAW_STATE_DIR/shared/agents}"
 WORKFLOW_ROOT="${WORKFLOW_ROOT:-$OPENCLAW_STATE_DIR/shared/company-workflows}"
 OUTBOX_ROOT="${OUTBOX_ROOT:-$OPENCLAW_STATE_DIR/shared/company-outbox}"
+ACTIVITY_ROOT="${ACTIVITY_ROOT:-$OPENCLAW_STATE_DIR/shared/company-activity}"
 GENERATED_DIR="${GENERATED_DIR:-$REPO_ROOT/generated}"
 USER_TIMEZONE="${USER_TIMEZONE:-Asia/Bangkok}"
 
@@ -27,7 +28,7 @@ for a in c.get('agents',[]):
 
 DEFAULT_TEMPLATE="$REPO_ROOT/templates/workspaces/default"
 
-mkdir -p "$SHARED_ROOT" "$WORKFLOW_ROOT" "$OUTBOX_ROOT" "$GENERATED_DIR"
+mkdir -p "$SHARED_ROOT" "$WORKFLOW_ROOT" "$OUTBOX_ROOT" "$ACTIVITY_ROOT" "$GENERATED_DIR"
 
 echo "==> Creating workspaces and status files"
 for AGENT_ID in $AGENTS; do
@@ -124,7 +125,7 @@ PY
 
 # Generate dashboard data
 echo "==> Generating dashboard data"
-export OPENCLAW_STATE_DIR SHARED_ROOT WORKFLOW_ROOT OUTBOX_ROOT
+export OPENCLAW_STATE_DIR SHARED_ROOT WORKFLOW_ROOT OUTBOX_ROOT ACTIVITY_ROOT
 bash "$REPO_ROOT/scripts/generate-dashboard.sh"
 
 if [ "${SKIP_OPENCLAW_SYNC:-0}" != "1" ]; then
