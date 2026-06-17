@@ -160,6 +160,21 @@ body.sprite-missing .oachar:after{left:10px;top:43px;width:30px}
 .sbh{padding:10px 14px 8px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.05)}
 .sbt{font-size:10px;color:#7a8ca0;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;flex:1}
 #sf{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#ccc;font-size:11px;padding:3px 8px;border-radius:7px;cursor:pointer;outline:none}
+#work-health{margin:10px 12px 8px;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:rgba(255,255,255,.035);overflow:hidden}
+.whh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.wht{font-size:10px;color:#9fb3ca;font-weight:900;text-transform:uppercase;letter-spacing:.7px}
+.whmeta{font-size:10px;color:#7ee787;font-weight:800;white-space:nowrap}
+.whr{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
+.whr:last-child{border-bottom:none}
+.whr.blocked{background:rgba(248,81,73,.08)}
+.whr.stale{background:rgba(251,146,60,.06)}
+.whr.idle{background:rgba(139,148,158,.04)}
+.whtop{display:flex;align-items:center;gap:7px;margin-bottom:5px;min-width:0}
+.whname{font-size:12px;color:#f0f6fc;font-weight:850;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.whage{font-size:10px;color:#8b949e;margin-left:auto;white-space:nowrap}
+.whline{font-size:11px;line-height:1.35;color:#c9d7e5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.whnext{font-size:10px;line-height:1.35;color:#9fb3ca;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.whempty{padding:10px;color:#8b949e;font-size:11px;line-height:1.35}
 
 /* Agent cards */
 .ac{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;transition:background .15s}
@@ -416,6 +431,7 @@ body.layout-editing .layout-main{padding:8px}
       <option value="offline">Offline</option>
     </select>
   </div>
+  <div id="work-health"></div>
   <div id="al"></div>
 </div>
 
@@ -692,6 +708,43 @@ function shortWork(a){
   const fallback={working:'กำลังทำงาน',blocked:'ติด blocker',done:'เสร็จแล้ว',offline:'offline',idle:'standby'}[n]||'standby';
   const txt=(raw||fallback).replace(/\s+/g,' ').slice(0,48);
   return{sig,txt,n};
+}
+function evidenceText(a){
+  const vals=[a.lastOutput,a.recentTask&&a.recentTask.summary,a.nextAction,a.objective]
+    .map(v=>(v||'').toString().replace(/\s+/g,' ').trim())
+    .filter(v=>v&&v!=='N/A'&&v!=='No status'&&v!=='not online yet'&&v!=='Waiting for next task');
+  return vals[0]||'No evidence yet';
+}
+function workHealthRows(){
+  const rows=(_ad||[]).filter(Boolean).map(a=>{
+    const n=norm(a.status),bl=blocker(a),st=staleOf(a),age=fmtAge(minsAgo(a.updatedAt));
+    const rank=bl.is||n==='blocked'?0:st==='critical'?1:n==='working'?2:st==='warn'?3:n==='idle'?4:5;
+    return{a,n,bl,st,age,rank};
+  }).sort((x,y)=>x.rank-y.rank||((parseTs(y.a.updatedAt)?.getTime()||0)-(parseTs(x.a.updatedAt)?.getTime()||0)));
+  const active=rows.filter(r=>r.rank<4);
+  return active.length?active:rows.slice(0,3);
+}
+function renderWorkHealth(){
+  const el=document.getElementById('work-health');if(!el)return;
+  const rows=workHealthRows();
+  const blocked=rows.filter(r=>r.bl.is||r.n==='blocked').length;
+  const working=(_ad||[]).filter(a=>norm(a.status)==='working').length;
+  const stale=rows.filter(r=>r.st).length;
+  const meta=blocked?`${blocked} blocked`:working?`${working} working`:stale?`${stale} stale`:'standby';
+  el.innerHTML=`<div class="whh"><span class="wht">Execution Signal</span><span class="whmeta">${esc(meta)}</span></div>`+
+    (rows.length?rows.map(r=>{
+      const a=r.a;
+      const state=r.bl.is||r.n==='blocked'?'blocked':r.st?'stale':r.n;
+      const badge=r.bl.is||r.n==='blocked'?'bb':r.n==='working'?'bw':r.n==='done'?'bd':r.n==='idle'?'bi':'bo';
+      const line=r.bl.is?`BLOCKER: ${r.bl.missing||'Needs follow-up'}`:evidenceText(a);
+      const next=r.bl.next||a.nextAction||'No next action recorded';
+      const age=r.age?`updated ${r.age} ago`:fmtDT(a.updatedAt)||'no timestamp';
+      return`<div class="whr ${state}" onclick="selA('${a.id}')">
+        <div class="whtop"><span class="badge ${badge}">${r.n}</span><span class="whname">${esc(a.name||a.id)}</span><span class="whage">${esc(age)}</span></div>
+        <div class="whline">${esc(line)}</div>
+        <div class="whnext">Next: ${esc(next)}</div>
+      </div>`;
+    }).join(''):'<div class="whempty">No agent data loaded yet.</div>');
 }
 
 // ── RESIZE ──
@@ -1773,6 +1826,7 @@ function renderSB(){
   const de=document.getElementById('sd');de.textContent='✅ '+cnt.done;de.style.display=cnt.done?'flex':'none';
   const oe=document.getElementById('so');oe.textContent='⚫ '+cnt.offline;oe.style.display=cnt.offline?'flex':'none';
   document.getElementById('tt').textContent=`TEAM (${sorted.length})`;
+  renderWorkHealth();
   document.getElementById('al').innerHTML=sorted.map(a=>{
     const bl=blocker(a);const stale=staleOf(a);const dt=fmtDT(a.updatedAt);
     return`<div class="ac ${selectedId===a.id?'sel':''} ${bl.is?'blk':''}" onclick="selA('${a.id}')">
