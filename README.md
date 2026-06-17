@@ -75,6 +75,8 @@ QA must use Playwright for browser-facing UI/E2E validation. See [Playwright QA 
 
 Role skills should follow [Agent Skill Governance](docs/agent-workflows/agent-skill-governance.md): skills are compact triggerable workflows, scoped to each role, evidence-based, and subordinate to PM routing and OpenClaw status discipline.
 
+Dashboard `Doing` status should follow [Work Reality Check](docs/agent-workflows/work-reality-check.md): `working` must be corroborated by runtime/session health and artifact progress.
+
 `scripts/dashboard.sh` keeps dashboard data refreshed every 3 seconds by default. The Work modal includes an Activity tab that shows workflow starts, handoffs, and queued agent messages.
 
 ## Docs
@@ -83,3 +85,4 @@ Role skills should follow [Agent Skill Governance](docs/agent-workflows/agent-sk
 - [Adding Roles](docs/adding-roles.md)
 - [Workflow Monitor Utility](docs/agent-workflows/ops-monitor.md)
 - [Agent Skill Governance](docs/agent-workflows/agent-skill-governance.md)
+- [Work Reality Check](docs/agent-workflows/work-reality-check.md)

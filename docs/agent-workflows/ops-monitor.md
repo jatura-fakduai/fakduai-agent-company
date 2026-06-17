@@ -53,3 +53,5 @@ Limit to one workflow:
 - `delivered_waiting_for_receiver`: delivered but not acknowledged, not active work.
 - `working`: receiver acknowledged and has started a concrete action with evidence.
 - `delivery_failed`: control-plane failure, not role failure.
+
+For deeper checks, use the [Work Reality Check](work-reality-check.md) standard. `working` must be corroborated by runtime/session health and artifact progress, not only by `STATUS.md`.
