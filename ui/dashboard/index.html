@@ -160,21 +160,6 @@ body.sprite-missing .oachar:after{left:10px;top:43px;width:30px}
 .sbh{padding:10px 14px 8px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.05)}
 .sbt{font-size:10px;color:#7a8ca0;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;flex:1}
 #sf{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#ccc;font-size:11px;padding:3px 8px;border-radius:7px;cursor:pointer;outline:none}
-#work-health{margin:8px 12px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:rgba(255,255,255,.025);overflow:hidden}
-.whh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;border-bottom:1px solid rgba(255,255,255,.06)}
-.wht{font-size:10px;color:#9fb3ca;font-weight:850}
-.whmeta{font-size:10px;color:#9fb3ca;font-weight:700;white-space:nowrap}
-.whr{padding:7px 9px;border-bottom:1px solid rgba(255,255,255,.05)}
-.whr:last-child{border-bottom:none}
-.whr.blocked{background:rgba(248,81,73,.08)}
-.whr.stale{background:rgba(251,146,60,.06)}
-.whr.idle{background:rgba(139,148,158,.04)}
-.whtop{display:flex;align-items:center;gap:7px;margin-bottom:5px;min-width:0}
-.whname{font-size:12px;color:#f0f6fc;font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.whage{font-size:10px;color:#8b949e;margin-left:auto;white-space:nowrap}
-.whline{font-size:11px;line-height:1.35;color:#c9d7e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.whnext{display:none}
-.whempty{padding:10px;color:#8b949e;font-size:11px;line-height:1.35}
 .proof{font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.14);font-weight:800;white-space:nowrap}
 .proof.active-proof{background:rgba(46,160,67,.14);border-color:rgba(46,160,67,.42);color:#7ee787}
 .proof.no-proof{background:rgba(251,146,60,.13);border-color:rgba(251,146,60,.42);color:#ffd19a}
@@ -440,7 +425,6 @@ body.layout-editing .layout-main{padding:8px}
       <option value="offline">Offline</option>
     </select>
   </div>
-  <div id="work-health"></div>
   <div id="al"></div>
 </div>
 
@@ -750,39 +734,6 @@ function proofOf(item){
   if((item&&item.nextAction))return simple({kind:'waiting',label:'Waiting',reason:item.nextAction});
   return simple({kind:'idle',label:'Idle / waiting',reason:'No active work assigned'});
 }
-function workHealthRows(){
-  const source=(kanbanData&&kanbanData.length?kanbanData:_ad)||[];
-  const rows=source.filter(Boolean).map(item=>{
-    const n=norm(item.status),bl=item.blocker||blocker(item),st=item.stale&&item.stale.level&&item.stale.level!=='fresh'?item.stale.level:staleOf(item),age=fmtAge(minsAgo(item.updatedAt));
-    const proof=proofOf(item);
-    const rank=proof.kind==='blocked'?0:proof.kind==='stale'?1:proof.kind==='no-proof'?2:proof.kind==='active-proof'?3:proof.kind==='waiting'?4:5;
-    return{a:item,n,bl,st,age,proof,rank};
-  }).sort((x,y)=>x.rank-y.rank||((parseTs(y.a.updatedAt)?.getTime()||0)-(parseTs(x.a.updatedAt)?.getTime()||0)));
-  const active=rows.filter(r=>r.rank<4);
-  return active.length?active:rows.slice(0,3);
-}
-function renderWorkHealth(){
-  const el=document.getElementById('work-health');if(!el)return;
-  const rows=workHealthRows();
-  const blocked=rows.filter(r=>r.bl.is||r.n==='blocked').length;
-  const working=(_ad||[]).filter(a=>norm(a.status)==='working').length;
-  const stale=rows.filter(r=>r.st).length;
-  const meta=blocked?`${blocked} ติด`:working?`${working} ทำงาน`:stale?`${stale} เก่า`:'standby';
-  el.innerHTML=`<div class="whh"><span class="wht">ใครทำอะไรอยู่</span><span class="whmeta">${esc(meta)}</span></div>`+
-    (rows.length?rows.map(r=>{
-      const a=r.a;
-      const state=r.proof.kind;
-      const badge=r.bl.is||r.n==='blocked'?'bb':r.n==='working'?'bw':r.n==='done'?'bd':r.n==='idle'?'bi':'bo';
-      const line=r.proof.reason||evidenceText(a);
-      const next=(r.bl&&r.bl.next)||a.nextAction||a.requiredAction||'No next action recorded';
-      const age=r.age?`updated ${r.age} ago`:fmtDT(a.updatedAt)||'no timestamp';
-      return`<div class="whr ${state}" onclick="${agents[a.ownerId||a.id]?`selA('${a.ownerId||a.id}')`:`openTD('${a.id}')`}">
-        <div class="whtop"><span class="badge ${badge}">${r.n}</span><span class="proof ${escA(r.proof.kind)}">${esc(r.proof.label)}</span><span class="whname">${esc(a.owner||a.name||a.id)}</span><span class="whage">${esc(age)}</span></div>
-        <div class="whline">${esc(line)}</div>
-      </div>`;
-    }).join(''):'<div class="whempty">No agent data loaded yet.</div>');
-}
-
 // ── RESIZE ──
 function resize(){
   const open=!document.getElementById('sb').classList.contains('hide');
@@ -1862,7 +1813,6 @@ function renderSB(){
   const de=document.getElementById('sd');de.textContent='✅ '+cnt.done;de.style.display=cnt.done?'flex':'none';
   const oe=document.getElementById('so');oe.textContent='⚫ '+cnt.offline;oe.style.display=cnt.offline?'flex':'none';
   document.getElementById('tt').textContent=`TEAM (${sorted.length})`;
-  renderWorkHealth();
   document.getElementById('al').innerHTML=sorted.map(a=>{
     const bl=blocker(a);const stale=staleOf(a);const dt=fmtDT(a.updatedAt);
     return`<div class="ac ${selectedId===a.id?'sel':''} ${bl.is?'blk':''}" onclick="selA('${a.id}')">
