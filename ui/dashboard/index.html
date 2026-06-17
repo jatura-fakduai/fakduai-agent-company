@@ -698,7 +698,7 @@ function shortWork(a){
   const sig={working:'⚡',blocked:'!',done:'✓',offline:'○',idle:'●'}[n]||'●';
   const recent=a.recentTask&&a.recentTask.isRecent?a.recentTask.summary:'';
   const raw=[recent,a.speech,a.thought,a.nextAction,a.objective,a.lastOutput].map(v=>(v||'').toString().trim()).find(v=>v&&v!=='N/A'&&v!=='No status'&&v!=='not online yet'&&v!=='Waiting for next task');
-  const fallback={working:'กำลังทำงาน',blocked:'ติด blocker',done:'เสร็จแล้ว',offline:'offline',idle:'standby'}[n]||'standby';
+  const fallback={working:'working',blocked:'blocked',done:'done',offline:'offline',idle:'standby'}[n]||'standby';
   const txt=(raw||fallback).replace(/\s+/g,' ').slice(0,48);
   return{sig,txt,n};
 }
@@ -711,15 +711,15 @@ function evidenceText(a){
 function proofOf(item){
   const simple=p=>{
     const map={
-      'active-proof':'ทำจริง',
-      'no-proof':'ไม่มีหลักฐาน',
-      stale:'เก่า',
-      blocked:'ติด',
-      waiting:'รอ',
-      done:'เสร็จ',
-      idle:'ว่าง'
+      'active-proof':'Active',
+      'no-proof':'No proof',
+      stale:'Stale',
+      blocked:'Blocked',
+      waiting:'Waiting',
+      done:'Done',
+      idle:'Idle'
     };
-    return{...(p||{}),label:map[p&&p.kind]||((p&&p.label)||'รอ')};
+    return{...(p||{}),label:map[p&&p.kind]||((p&&p.label)||'Waiting')};
   };
   if(item&&item.proof&&item.proof.kind)return simple(item.proof);
   const n=norm(item&&item.status),bl=blocker(item||{}),st=staleOf(item||{});
