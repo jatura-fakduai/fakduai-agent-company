@@ -240,6 +240,7 @@ body.sprite-missing .oachar:after{left:10px;top:43px;width:30px}
 .kc{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:9px 11px;margin-bottom:7px;cursor:pointer;transition:border-color .15s}
 .kc:hover{border-color:rgba(255,255,255,.15)}
 .kc.blk{border-color:rgba(229,57,53,.4);background:rgba(229,57,53,.05)}
+.kc.noproof{border-color:rgba(251,146,60,.38);background:rgba(251,146,60,.045)}
 .kct{font-size:12px;font-weight:700;color:#eee}
 .kctl{font-size:11px;color:#d8e8f8;line-height:1.35;margin:5px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .kcm{font-size:10px;color:#8b949e}
@@ -1936,10 +1937,13 @@ function renderBoard(cards){
 function ch(c){
   const bl=c.blocker||blocker(c);const dt=fmtDT(c.updatedAt);const age=fmtAge(minsAgo(c.updatedAt));
   const ev=cardEvidence(c).slice(0,2);
-  return`<div class="kc ${bl.is?'blk':''}" onclick="openTD('${c.id}')">
+  const proof=proofOf(c);
+  const needsProof=norm(c.status)==='working'&&proof.kind==='no-proof';
+  const proofChip=norm(c.status)==='working'?`<span class="proof ${escA(proof.kind)}">${esc(proof.label)}</span>`:'';
+  return`<div class="kc ${bl.is?'blk':''} ${needsProof?'noproof':''}" onclick="openTD('${c.id}')">
     <div class="kctop"><span style="font-size:15px">${c.emoji||'🤖'}</span><span class="kcowner">${c.owner||c.id}</span><span class="badge b${norm(c.status)[0]}">${norm(c.status)}</span></div>
     <div class="kctl">${esc((c.title||'').replace(/^[-\d.\s]+/,'').trim())}</div>
-    <div class="kcmeta">${dt?`<span class="kcm">${age||dt}</span>`:''}${ev.length?`<span class="kcm">${ev.length} evidence</span>`:''}</div>
+    <div class="kcmeta">${proofChip}${dt?`<span class="kcm">${age||dt}</span>`:''}${ev.length?`<span class="kcm">${ev.length} evidence</span>`:''}</div>
     ${bl.is?`<div class="kcblk">⏹ ${esc(bl.missing||'Needs follow-up')}</div>`:''}
   </div>`;
 }
