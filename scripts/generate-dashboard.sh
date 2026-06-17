@@ -512,6 +512,11 @@ canonical_statuses = {'idle', 'working', 'blocked', 'done'}
 weak_output_markers = {
     'working on it', 'investigating', 'continue working', 'monitoring', 'tracking', 'ongoing', 'active'
 }
+concrete_output_markers = (
+    'artifact', 'saved at', 'commit ', 'committed', 'created ', 'wrote ', 'routed ',
+    'passed', 'failed', 'deployed', 'verified', 'evidence', 'screenshot',
+    'test', 'plan saved', 'handoff', 'implemented', 'review'
+)
 for slug, acfg in agents_config.items():
     workspace_dir = str(workspace_dir_for(slug))
     status_file = status_file_for(slug)
@@ -767,6 +772,36 @@ for slug, acfg in agents_config.items():
         elif any(w['type'] == 'weak-output' for w in warnings):
             required_action = f"{escalation_owner} must request a more concrete output update"
 
+    concrete_output = bool(last_output and any(marker in last_output.lower() for marker in concrete_output_markers))
+    proof_kind = 'idle'
+    proof_label = 'Idle / waiting'
+    proof_reason = 'No active work assigned'
+    if raw_status == 'blocked':
+        proof_kind = 'blocked'
+        proof_label = 'Blocked'
+        proof_reason = blocker_from_status(raw_status, text, next_action).get('missingInput') or 'Blocked without clear missing input'
+    elif any(w['type'] == 'stale' for w in warnings):
+        proof_kind = 'stale'
+        proof_label = 'Stale'
+        proof_reason = next((w['label'] for w in warnings if w['type'] == 'stale'), 'Needs fresh status update')
+    elif raw_status == 'working':
+        if concrete_output:
+            proof_kind = 'active-proof'
+            proof_label = 'Active proof'
+            proof_reason = last_output[:160]
+        else:
+            proof_kind = 'no-proof'
+            proof_label = 'Working without proof'
+            proof_reason = 'STATUS says working, but last meaningful output is not concrete evidence yet'
+    elif raw_status == 'done':
+        proof_kind = 'done'
+        proof_label = 'Done'
+        proof_reason = last_output[:160] if last_output else 'Marked done'
+    elif next_action:
+        proof_kind = 'waiting'
+        proof_label = 'Waiting'
+        proof_reason = next_action[:160]
+
     cards.append({
         'id': slug,
         'workItem': work_item,
@@ -818,6 +853,13 @@ for slug, acfg in agents_config.items():
         'warnings': warnings,
         'escalation': escalation,
         'requiredAction': required_action,
+        'proof': {
+            'kind': proof_kind,
+            'label': proof_label,
+            'reason': proof_reason,
+            'hasConcreteOutput': concrete_output,
+            'ageMinutes': age_minutes,
+        },
     })
 
 card_by_slug = {c['id']: c for c in cards}
