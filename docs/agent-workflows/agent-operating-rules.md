@@ -81,6 +81,8 @@ After meaningful work, update `STATUS.md` with:
 - Last Meaningful Output
 - Collaboration
 
+Dashboard movement is inferred from status and routing events. Agents should not attach, describe, or generate desk/screen/monitor SVG assets when they move to Talk or join a discussion; those visual assets are owned by the dashboard and remain desk-only decoration.
+
 ## 7. When To Ask vs When To Act
 
 Act when:

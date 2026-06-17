@@ -77,7 +77,7 @@ If an agent is stale because the delivery log is empty or only contains the init
 ## Token Control Rule
 PM should not repeatedly read full logs, large artifacts, screenshots, or source files during periodic monitoring. Periodic reports should read compact status and event summaries first, then inspect large evidence only when a status changes, a blocker appears, or a user asks for details.
 
-Long-running monitoring should be delegated to a monitor/ops agent or cron with compact prompts. PM should receive decision-ready summaries rather than polling every role's raw logs.
+Long-running monitoring should use the PM-owned monitor utility or cron with compact prompts. PM should receive decision-ready summaries rather than polling every role's raw logs.
 
 ## Periodic Report Format
 When the user asks for periodic reports, each report must include:

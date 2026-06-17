@@ -1,9 +1,9 @@
-# Ops Monitor
+# Workflow Monitor Utility
 
-Ops Monitor owns company-agent control-plane health: delivery state, receiver acknowledgement, stale `working`, and token-heavy polling.
+PM owns company-agent control-plane health: delivery state, receiver acknowledgement, stale `working`, and token-heavy polling. The monitor script is a quiet utility PM can run for compact checks; it is not a separate office role.
 
 ## Purpose
-PM should not spend most tokens polling every raw log. Ops Monitor produces compact escalation summaries and marks delivery/control-plane failures early.
+PM should not spend most tokens polling every raw log. The monitor utility produces compact escalation summaries and marks delivery/control-plane failures early.
 
 ## Script
 

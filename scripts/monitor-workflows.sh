@@ -167,9 +167,9 @@ def mark_status(event):
     elif status == "working":
         text = replace_field(text, "current status", "blocked")
         text = replace_field(text, "active blocker", f"{event['issue']}; owner must provide evidence or blocker")
-        text = replace_field(text, "next action", "PM/ops must reset, split, or reassign")
+        text = replace_field(text, "next action", "PM must reset, split, or reassign")
     text = replace_field(text, "refreshed_at", iso_now())
-    text = replace_field(text, "last meaningful output", f"ops monitor marked stale: {event['issue']}")
+    text = replace_field(text, "last meaningful output", f"workflow monitor marked stale: {event['issue']}")
     path.write_text(text, encoding="utf-8")
 
 def delivery_log_events():
