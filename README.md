@@ -73,6 +73,8 @@ PM can run the [workflow monitor utility](docs/agent-workflows/ops-monitor.md) f
 
 QA must use Playwright for browser-facing UI/E2E validation. See [Playwright QA Policy](docs/agent-workflows/playwright-qa-policy.md).
 
+Role skills should follow [Agent Skill Governance](docs/agent-workflows/agent-skill-governance.md): skills are compact triggerable workflows, scoped to each role, evidence-based, and subordinate to PM routing and OpenClaw status discipline.
+
 `scripts/dashboard.sh` keeps dashboard data refreshed every 3 seconds by default. The Work modal includes an Activity tab that shows workflow starts, handoffs, and queued agent messages.
 
 ## Docs
@@ -80,3 +82,4 @@ QA must use Playwright for browser-facing UI/E2E validation. See [Playwright QA 
 - [Getting Started](docs/getting-started.md)
 - [Adding Roles](docs/adding-roles.md)
 - [Workflow Monitor Utility](docs/agent-workflows/ops-monitor.md)
+- [Agent Skill Governance](docs/agent-workflows/agent-skill-governance.md)
