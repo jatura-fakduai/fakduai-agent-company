@@ -160,22 +160,22 @@ body.sprite-missing .oachar:after{left:10px;top:43px;width:30px}
 .sbh{padding:10px 14px 8px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.05)}
 .sbt{font-size:10px;color:#7a8ca0;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;flex:1}
 #sf{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#ccc;font-size:11px;padding:3px 8px;border-radius:7px;cursor:pointer;outline:none}
-#work-health{margin:10px 12px 8px;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:rgba(255,255,255,.035);overflow:hidden}
-.whh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
-.wht{font-size:10px;color:#9fb3ca;font-weight:900;text-transform:uppercase;letter-spacing:.7px}
-.whmeta{font-size:10px;color:#7ee787;font-weight:800;white-space:nowrap}
-.whr{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
+#work-health{margin:8px 12px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:rgba(255,255,255,.025);overflow:hidden}
+.whh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;border-bottom:1px solid rgba(255,255,255,.06)}
+.wht{font-size:10px;color:#9fb3ca;font-weight:850}
+.whmeta{font-size:10px;color:#9fb3ca;font-weight:700;white-space:nowrap}
+.whr{padding:7px 9px;border-bottom:1px solid rgba(255,255,255,.05)}
 .whr:last-child{border-bottom:none}
 .whr.blocked{background:rgba(248,81,73,.08)}
 .whr.stale{background:rgba(251,146,60,.06)}
 .whr.idle{background:rgba(139,148,158,.04)}
 .whtop{display:flex;align-items:center;gap:7px;margin-bottom:5px;min-width:0}
-.whname{font-size:12px;color:#f0f6fc;font-weight:850;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.whname{font-size:12px;color:#f0f6fc;font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .whage{font-size:10px;color:#8b949e;margin-left:auto;white-space:nowrap}
-.whline{font-size:11px;line-height:1.35;color:#c9d7e5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.whnext{font-size:10px;line-height:1.35;color:#9fb3ca;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.whline{font-size:11px;line-height:1.35;color:#c9d7e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.whnext{display:none}
 .whempty{padding:10px;color:#8b949e;font-size:11px;line-height:1.35}
-.proof{font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.14);font-weight:900;text-transform:uppercase;letter-spacing:.35px;white-space:nowrap}
+.proof{font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.14);font-weight:800;white-space:nowrap}
 .proof.active-proof{background:rgba(46,160,67,.14);border-color:rgba(46,160,67,.42);color:#7ee787}
 .proof.no-proof{background:rgba(251,146,60,.13);border-color:rgba(251,146,60,.42);color:#ffd19a}
 .proof.stale{background:rgba(251,146,60,.13);border-color:rgba(251,146,60,.42);color:#ffd19a}
@@ -724,18 +724,30 @@ function evidenceText(a){
   return vals[0]||'No evidence yet';
 }
 function proofOf(item){
-  if(item&&item.proof&&item.proof.kind)return item.proof;
+  const simple=p=>{
+    const map={
+      'active-proof':'ทำจริง',
+      'no-proof':'ไม่มีหลักฐาน',
+      stale:'เก่า',
+      blocked:'ติด',
+      waiting:'รอ',
+      done:'เสร็จ',
+      idle:'ว่าง'
+    };
+    return{...(p||{}),label:map[p&&p.kind]||((p&&p.label)||'รอ')};
+  };
+  if(item&&item.proof&&item.proof.kind)return simple(item.proof);
   const n=norm(item&&item.status),bl=blocker(item||{}),st=staleOf(item||{});
-  if(bl.is||n==='blocked')return{kind:'blocked',label:'Blocked',reason:bl.missing||'Blocked'};
-  if(st)return{kind:'stale',label:'Stale',reason:st==='critical'?'No fresh status':'Old status'};
+  if(bl.is||n==='blocked')return simple({kind:'blocked',label:'Blocked',reason:bl.missing||'Blocked'});
+  if(st)return simple({kind:'stale',label:'Stale',reason:st==='critical'?'No fresh status':'Old status'});
   const ev=evidenceText(item||{});
   if(n==='working'){
     const concrete=/artifact|saved at|commit |committed|created |wrote |routed |passed|failed|deployed|verified|evidence|screenshot|test|plan saved|handoff|implemented|review/i.test(ev);
-    return concrete?{kind:'active-proof',label:'Active proof',reason:ev}:{kind:'no-proof',label:'Working without proof',reason:'No concrete output yet'};
+    return concrete?simple({kind:'active-proof',label:'Active proof',reason:ev}):simple({kind:'no-proof',label:'Working without proof',reason:'No concrete output yet'});
   }
-  if(n==='done')return{kind:'done',label:'Done',reason:ev};
-  if((item&&item.nextAction))return{kind:'waiting',label:'Waiting',reason:item.nextAction};
-  return{kind:'idle',label:'Idle / waiting',reason:'No active work assigned'};
+  if(n==='done')return simple({kind:'done',label:'Done',reason:ev});
+  if((item&&item.nextAction))return simple({kind:'waiting',label:'Waiting',reason:item.nextAction});
+  return simple({kind:'idle',label:'Idle / waiting',reason:'No active work assigned'});
 }
 function workHealthRows(){
   const source=(kanbanData&&kanbanData.length?kanbanData:_ad)||[];
@@ -754,8 +766,8 @@ function renderWorkHealth(){
   const blocked=rows.filter(r=>r.bl.is||r.n==='blocked').length;
   const working=(_ad||[]).filter(a=>norm(a.status)==='working').length;
   const stale=rows.filter(r=>r.st).length;
-  const meta=blocked?`${blocked} blocked`:working?`${working} working`:stale?`${stale} stale`:'standby';
-  el.innerHTML=`<div class="whh"><span class="wht">Execution Signal</span><span class="whmeta">${esc(meta)}</span></div>`+
+  const meta=blocked?`${blocked} ติด`:working?`${working} ทำงาน`:stale?`${stale} เก่า`:'standby';
+  el.innerHTML=`<div class="whh"><span class="wht">ใครทำอะไรอยู่</span><span class="whmeta">${esc(meta)}</span></div>`+
     (rows.length?rows.map(r=>{
       const a=r.a;
       const state=r.proof.kind;
@@ -766,7 +778,6 @@ function renderWorkHealth(){
       return`<div class="whr ${state}" onclick="${agents[a.ownerId||a.id]?`selA('${a.ownerId||a.id}')`:`openTD('${a.id}')`}">
         <div class="whtop"><span class="badge ${badge}">${r.n}</span><span class="proof ${escA(r.proof.kind)}">${esc(r.proof.label)}</span><span class="whname">${esc(a.owner||a.name||a.id)}</span><span class="whage">${esc(age)}</span></div>
         <div class="whline">${esc(line)}</div>
-        <div class="whnext">Next: ${esc(next)}</div>
       </div>`;
     }).join(''):'<div class="whempty">No agent data loaded yet.</div>');
 }
@@ -1925,10 +1936,8 @@ function renderBoard(cards){
 function ch(c){
   const bl=c.blocker||blocker(c);const dt=fmtDT(c.updatedAt);const age=fmtAge(minsAgo(c.updatedAt));
   const ev=cardEvidence(c).slice(0,2);
-  const proof=proofOf(c);
   return`<div class="kc ${bl.is?'blk':''}" onclick="openTD('${c.id}')">
     <div class="kctop"><span style="font-size:15px">${c.emoji||'🤖'}</span><span class="kcowner">${c.owner||c.id}</span><span class="badge b${norm(c.status)[0]}">${norm(c.status)}</span></div>
-    <div style="margin:4px 0"><span class="proof ${escA(proof.kind)}">${esc(proof.label)}</span></div>
     <div class="kctl">${esc((c.title||'').replace(/^[-\d.\s]+/,'').trim())}</div>
     <div class="kcmeta">${dt?`<span class="kcm">${age||dt}</span>`:''}${ev.length?`<span class="kcm">${ev.length} evidence</span>`:''}</div>
     ${bl.is?`<div class="kcblk">⏹ ${esc(bl.missing||'Needs follow-up')}</div>`:''}
