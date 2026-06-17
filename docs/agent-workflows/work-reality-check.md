@@ -76,22 +76,22 @@ Avoid large panels. The dashboard should stay simple.
 - `blocked` must move/report to Talk immediately.
 - PM should not nudge the same stale owner repeatedly. After one recovery attempt with no output, reassign or escalate.
 
-## Monitor Implementation Target
+## Monitor Implementation
 
-Extend `scripts/monitor-workflows.sh` to include optional deep checks:
+Use `scripts/monitor-workflows.sh` with optional deep checks:
 
 ```bash
 ./scripts/monitor-workflows.sh --workflow <id> --deep
 ./scripts/monitor-workflows.sh --workflow <id> --deep --apply
 ```
 
-Deep checks should:
+Deep checks:
 
-- scan recent OpenClaw session metadata for assigned agents
-- detect latest failed session after assignment
-- detect missing promised artifact paths
+- scan recent OpenClaw session metadata from each agent's `sessions.json`
+- detect latest failed/aborted session after assignment
+- detect missing promised artifact paths for the active workflow
 - detect workflow artifact/event inactivity
-- emit compact JSON problems for dashboard and PM
+- emit compact JSON problems for dashboard and PM without raw STATUS body leakage
 
 `--apply` may mark `STATUS.md` as blocked only when the evidence is objective:
 
@@ -108,4 +108,3 @@ When a founder asks "is the team actually working?", PM must answer from the thr
 3. artifact/output evidence
 
 Do not report "working" from status alone.
-

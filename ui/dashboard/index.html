@@ -164,6 +164,7 @@ body.sprite-missing .oachar:after{left:10px;top:43px;width:30px}
 .proof.active-proof{background:rgba(46,160,67,.14);border-color:rgba(46,160,67,.42);color:#7ee787}
 .proof.no-proof{background:rgba(251,146,60,.13);border-color:rgba(251,146,60,.42);color:#ffd19a}
 .proof.stale{background:rgba(251,146,60,.13);border-color:rgba(251,146,60,.42);color:#ffd19a}
+.proof.failed{background:rgba(248,81,73,.14);border-color:rgba(248,81,73,.44);color:#ffa198}
 .proof.blocked{background:rgba(248,81,73,.14);border-color:rgba(248,81,73,.44);color:#ffa198}
 .proof.waiting{background:rgba(88,166,255,.12);border-color:rgba(88,166,255,.36);color:#9dccff}
 .proof.done{background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.36);color:#a5f3fc}
@@ -713,6 +714,7 @@ function proofOf(item){
     const map={
       'active-proof':'Active',
       'no-proof':'No proof',
+      failed:'Failed',
       stale:'Stale',
       blocked:'Blocked',
       waiting:'Waiting',

@@ -517,6 +517,107 @@ concrete_output_markers = (
     'passed', 'failed', 'deployed', 'verified', 'evidence', 'screenshot',
     'test', 'plan saved', 'handoff', 'implemented', 'review'
 )
+
+def ts_from_ms(value):
+    if not value:
+        return None
+    try:
+        return datetime.datetime.fromtimestamp(int(value) / 1000, datetime.timezone.utc)
+    except Exception:
+        return None
+
+def latest_session_for(slug):
+    index = state_root / 'agents' / slug / 'sessions' / 'sessions.json'
+    if not index.exists():
+        return None
+    try:
+        data = json.loads(index.read_text(encoding='utf-8', errors='ignore'))
+    except Exception:
+        return None
+    candidates = []
+    for key, meta in data.items():
+        if not isinstance(meta, dict):
+            continue
+        candidates.append((int(meta.get('updatedAt') or 0), key, meta))
+    if not candidates:
+        return None
+    _, key, meta = max(candidates, key=lambda item: item[0])
+    updated_dt = ts_from_ms(meta.get('updatedAt'))
+    started_dt = ts_from_ms(meta.get('startedAt') or meta.get('sessionStartedAt'))
+    return {
+        'sessionKey': key,
+        'sessionId': meta.get('sessionId', ''),
+        'status': str(meta.get('status', 'unknown')).lower(),
+        'updatedAt': iso_utc(updated_dt) if updated_dt else '',
+        'startedAt': iso_utc(started_dt) if started_dt else '',
+        'sessionFile': meta.get('sessionFile', ''),
+        'model': meta.get('model', ''),
+        '_updated': updated_dt,
+        '_started': started_dt,
+    }
+
+def workflow_id_from_status(text):
+    return (
+        pick_field(text, 'workflow id', '') or
+        pick_field(text, 'workflow_id', '') or
+        pick_field(text, 'Workflow ID', '')
+    ).strip()
+
+def assignment_time_for(workflow_id, slug):
+    if not workflow_id:
+        return None
+    root = Path(os.environ.get('WORKFLOW_ROOT', str(state_root / 'shared' / 'company-workflows'))) / workflow_id
+    times = []
+    for folder in ('handoffs', 'delivery-logs'):
+        base = root / folder
+        if not base.exists():
+            continue
+        for path in base.glob(f'*-to-{slug}.*'):
+            try:
+                times.append(datetime.datetime.fromtimestamp(path.stat().st_mtime, datetime.timezone.utc))
+            except Exception:
+                pass
+    return min(times) if times else None
+
+def artifact_stats_for(workflow_id, slug):
+    stats = {'count': 0, 'agentCount': 0, 'newestAt': '', 'newestAgeMinutes': None}
+    if not workflow_id:
+        return stats
+    root = Path(os.environ.get('WORKFLOW_ROOT', str(state_root / 'shared' / 'company-workflows'))) / workflow_id / 'artifacts'
+    if not root.exists():
+        return stats
+    files = [p for p in root.iterdir() if p.is_file()]
+    agent_files = [
+        p for p in files
+        if slug.lower() in p.name.lower() and not p.name.lower().startswith(f'pm-{slug.lower()}')
+    ]
+    newest = max((p.stat().st_mtime for p in files), default=0)
+    newest_dt = datetime.datetime.fromtimestamp(newest, datetime.timezone.utc) if newest else None
+    stats.update({
+        'count': len(files),
+        'agentCount': len(agent_files),
+        'newestAt': iso_utc(newest_dt) if newest_dt else '',
+        'newestAgeMinutes': max(0, int((utc_now() - newest_dt).total_seconds() // 60)) if newest_dt else None,
+    })
+    return stats
+
+def runtime_proof_for(slug, text):
+    workflow_id = workflow_id_from_status(text)
+    session = latest_session_for(slug)
+    assignment = assignment_time_for(workflow_id, slug)
+    artifacts = artifact_stats_for(workflow_id, slug)
+    session_public = None
+    if session:
+        session_public = {k: v for k, v in session.items() if not k.startswith('_')}
+    session_after_assignment = bool(session and assignment and session.get('_started') and session['_started'] >= assignment)
+    return {
+        'workflowId': workflow_id,
+        'assignedAt': iso_utc(assignment) if assignment else '',
+        'session': session_public,
+        'artifacts': artifacts,
+        'sessionAfterAssignment': session_after_assignment,
+    }
+
 for slug, acfg in agents_config.items():
     workspace_dir = str(workspace_dir_for(slug))
     status_file = status_file_for(slug)
@@ -543,6 +644,7 @@ for slug, acfg in agents_config.items():
         continue
 
     raw_status = infer_status(text)
+    runtime_proof = runtime_proof_for(slug, text)
     status_literal = parse_section(text, 'Status') or parse_kv(text, 'Status') or raw_status
     owner_name = acfg.get('name', slug)
     owner_emoji = acfg.get('emoji', '🤖')
@@ -773,10 +875,24 @@ for slug, acfg in agents_config.items():
             required_action = f"{escalation_owner} must request a more concrete output update"
 
     concrete_output = bool(last_output and any(marker in last_output.lower() for marker in concrete_output_markers))
+    runtime_session = runtime_proof.get('session') or {}
+    artifact_evidence = runtime_proof.get('artifacts', {}).get('agentCount', 0) > 0
+    session_failed = (
+        raw_status == 'working' and
+        runtime_session.get('status') in ('failed', 'aborted') and
+        runtime_proof.get('sessionAfterAssignment')
+    )
     proof_kind = 'idle'
     proof_label = 'Idle / waiting'
     proof_reason = 'No active work assigned'
-    if raw_status == 'blocked':
+    if session_failed:
+        proof_kind = 'failed'
+        proof_label = 'Failed'
+        proof_reason = f"Latest OpenClaw session is {runtime_session.get('status')}"
+        warnings.append({'type': 'runtime-failed', 'label': proof_reason})
+        escalation_score += 50
+        escalation_owner = escalation_owner or 'PM'
+    elif raw_status == 'blocked':
         proof_kind = 'blocked'
         proof_label = 'Blocked'
         proof_reason = blocker_from_status(raw_status, text, next_action).get('missingInput') or 'Blocked without clear missing input'
@@ -785,14 +901,14 @@ for slug, acfg in agents_config.items():
         proof_label = 'Stale'
         proof_reason = next((w['label'] for w in warnings if w['type'] == 'stale'), 'Needs fresh status update')
     elif raw_status == 'working':
-        if concrete_output:
+        if concrete_output or artifact_evidence:
             proof_kind = 'active-proof'
             proof_label = 'Active proof'
-            proof_reason = last_output[:160]
+            proof_reason = last_output[:160] if concrete_output else 'Agent-owned workflow artifact exists'
         else:
             proof_kind = 'no-proof'
             proof_label = 'Working without proof'
-            proof_reason = 'STATUS says working, but last meaningful output is not concrete evidence yet'
+            proof_reason = 'STATUS says working, but no runtime/artifact evidence is visible yet'
     elif raw_status == 'done':
         proof_kind = 'done'
         proof_label = 'Done'
@@ -801,6 +917,14 @@ for slug, acfg in agents_config.items():
         proof_kind = 'waiting'
         proof_label = 'Waiting'
         proof_reason = next_action[:160]
+
+    if session_failed:
+        escalation = {
+            'score': max(escalation_score, 80),
+            'owner': 'PM',
+            'level': 'high',
+        }
+        required_action = 'PM must mark the owner blocked, recover the session, or reassign the work'
 
     cards.append({
         'id': slug,
@@ -858,6 +982,7 @@ for slug, acfg in agents_config.items():
             'label': proof_label,
             'reason': proof_reason,
             'hasConcreteOutput': concrete_output,
+            'runtime': runtime_proof,
             'ageMinutes': age_minutes,
         },
     })
