@@ -130,6 +130,27 @@ def is_recent_task_event(event):
     age = task_event_age_seconds(event)
     return age is not None and age <= TASK_TALK_SECONDS
 
+def event_dt(event):
+    dt = parse_ts(event.get('ts', ''))
+    if dt and dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt
+
+def status_dt(value):
+    dt = parse_ts(value or '')
+    if dt and dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt
+
+def delivery_recovered_by_status(event, status, updated):
+    if event.get('delivery') != 'failed':
+        return False
+    if status in ('delivery_failed', 'delivering', 'delivered_waiting_for_receiver'):
+        return False
+    sent_dt = event_dt(event)
+    updated_dt = status_dt(updated)
+    return bool(sent_dt and updated_dt and updated_dt > sent_dt)
+
 def load_task_send_events():
     path = activity_root / 'task-sends.ndjson'
     if not path.exists():
@@ -159,8 +180,15 @@ def load_task_send_events():
     return sorted(dedup.values(), key=lambda e: e.get('ts', ''), reverse=True)
 
 task_send_events = load_task_send_events()
+recovered_send_ids = {
+    event.get('recoversSendId')
+    for event in task_send_events
+    if event.get('recoversSendId') and event.get('delivery') in ('delivered', 'delivery_recovered', 'recovered')
+}
 latest_task_by_agent = {}
 for event in task_send_events:
+    if event.get('sendId') in recovered_send_ids:
+        continue
     target = event.get('to')
     if target and target not in latest_task_by_agent:
         latest_task_by_agent[target] = event
@@ -414,7 +442,8 @@ for slug, acfg in agents_config.items():
     latest_task = latest_task_by_agent.get(slug)
     if latest_task:
         task_age = task_event_age_seconds(latest_task)
-        task_is_recent = task_age is not None and task_age <= TASK_TALK_SECONDS
+        task_recovered = delivery_recovered_by_status(latest_task, status, updated)
+        task_is_recent = task_age is not None and task_age <= TASK_TALK_SECONDS and not task_recovered
         task_preview = task_event_preview(latest_task)
         recent_task = {
             'sendId': latest_task.get('sendId', ''),
@@ -422,11 +451,12 @@ for slug, acfg in agents_config.items():
             'to': latest_task.get('to', slug),
             'workflowId': latest_task.get('workflowId', ''),
             'summary': task_preview,
-            'delivery': latest_task.get('delivery', ''),
-            'detail': latest_task.get('detail', ''),
+            'delivery': 'recovered' if task_recovered else latest_task.get('delivery', ''),
+            'detail': 'superseded by newer STATUS.md evidence' if task_recovered else latest_task.get('detail', ''),
             'sentAt': latest_task.get('ts', ''),
             'ageSeconds': task_age,
             'isRecent': bool(task_is_recent),
+            'recovered': bool(task_recovered),
         }
         if task_is_recent:
             location = 'talk'
@@ -1358,10 +1388,16 @@ print(f'Wrote {artifacts_file} ({len(artifacts)} artifacts)')
 # ---------------- Workflow activity layer ----------------
 workflow_root = Path(os.environ.get('WORKFLOW_ROOT', str(Path.home() / '.openclaw' / 'shared' / 'company-workflows')))
 outbox_root = Path(os.environ.get('OUTBOX_ROOT', str(Path.home() / '.openclaw' / 'shared' / 'company-outbox')))
+agent_status_index = {item['id']: item for item in items}
 activities = []
 workflows = []
 
 for event in task_send_events:
+    agent_status = agent_status_index.get(event.get('to', ''), {})
+    event_recovered = (
+        event.get('sendId') in recovered_send_ids
+        or delivery_recovered_by_status(event, agent_status.get('status', ''), agent_status.get('updatedAt', ''))
+    )
     activities.append({
         'ts': event.get('ts', ''),
         'workflowId': event.get('workflowId', '') or 'direct-task',
@@ -1370,8 +1406,11 @@ for event in task_send_events:
         'from': event.get('from', 'human'),
         'to': event.get('to', ''),
         'summary': task_event_preview(event),
-        'delivery': event.get('delivery', ''),
+        'delivery': 'recovered' if event_recovered else event.get('delivery', ''),
+        'detail': 'superseded by newer STATUS.md evidence' if event_recovered else event.get('detail', ''),
         'sendId': event.get('sendId', ''),
+        'recovered': bool(event_recovered),
+        'recoversSendId': event.get('recoversSendId', ''),
     })
 
 def read_workflow_objective(workflow_dir):

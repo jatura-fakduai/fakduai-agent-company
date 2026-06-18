@@ -12,6 +12,7 @@ set -euo pipefail
 #   COMPANY_LOCK_ROOT=...       Directory for cross-process send slots.
 #   ACTIVITY_ROOT=...           Directory for dashboard-visible send events.
 #   AGENT_TIMEOUT=300           Per-agent OpenClaw timeout.
+#   RECOVERS_SEND_ID=...        Optional sendId this delivery supersedes.
 
 AGENT="${1:?Usage: send-task.sh <agent-id> '<message>'}"
 
@@ -37,18 +38,19 @@ ACTIVITY_ROOT="${ACTIVITY_ROOT:-$HOME/.openclaw/shared/company-activity}"
 COMPANY_SEND_FROM="${COMPANY_SEND_FROM:-human}"
 COMPANY_WORKFLOW_ID="${COMPANY_WORKFLOW_ID:-}"
 SEND_ID="${SEND_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$AGENT-$$}"
+RECOVERS_SEND_ID="${RECOVERS_SEND_ID:-}"
 
 record_task_event() {
   local delivery="$1"
   local detail="${2:-}"
   mkdir -p "$ACTIVITY_ROOT" || return 0
-  python3 - "$ACTIVITY_ROOT/task-sends.ndjson" "$SEND_ID" "$COMPANY_SEND_FROM" "$AGENT" "$COMPANY_WORKFLOW_ID" "$delivery" "$detail" "$MSG" <<'PY' || true
+  python3 - "$ACTIVITY_ROOT/task-sends.ndjson" "$SEND_ID" "$COMPANY_SEND_FROM" "$AGENT" "$COMPANY_WORKFLOW_ID" "$delivery" "$detail" "$MSG" "$RECOVERS_SEND_ID" <<'PY' || true
 import datetime
 import json
 import re
 import sys
 
-path, send_id, sender, agent, workflow_id, delivery, detail, message = sys.argv[1:9]
+path, send_id, sender, agent, workflow_id, delivery, detail, message, recovers_send_id = sys.argv[1:10]
 
 def section(text, heading):
     lines = text.splitlines()
@@ -93,6 +95,8 @@ event = {
     "detail": detail,
     "summary": summary[:240] or f"Task sent to {agent}",
 }
+if recovers_send_id:
+    event["recoversSendId"] = recovers_send_id
 with open(path, "a", encoding="utf-8") as f:
     f.write(json.dumps(event, ensure_ascii=False) + "\n")
 PY

@@ -176,6 +176,11 @@ def ts_from_ms(value):
     except Exception:
         return None
 
+def parse_delivery_log_target(path):
+    stem = Path(path).stem
+    m = re.match(r"\d{8}T\d{6}Z-[^-]+-to-([^.]+)$", stem)
+    return m.group(1) if m else ""
+
 def agent_session_event(agent):
     sessions_index = state_root / "agents" / agent / "sessions" / "sessions.json"
     if not sessions_index.exists():
@@ -325,7 +330,7 @@ def mark_status(event):
     text = replace_field(text, "last meaningful output", f"workflow monitor marked stale: {event['issue']}")
     path.write_text(text, encoding="utf-8")
 
-def delivery_log_events():
+def delivery_log_events(status_index):
     roots = []
     if workflow_filter:
         roots = [workflow_root / workflow_filter / "delivery-logs"]
@@ -338,10 +343,21 @@ def delivery_log_events():
         for path in sorted(root.glob("*.log"), key=lambda p: p.stat().st_mtime, reverse=True)[:100]:
             size = path.stat().st_size
             text = path.read_text(encoding="utf-8", errors="ignore")[:300] if size else ""
+            mtime_dt = datetime.datetime.fromtimestamp(path.stat().st_mtime, datetime.timezone.utc)
             age = max(0, int((utc_now() - datetime.datetime.fromtimestamp(path.stat().st_mtime, datetime.timezone.utc)).total_seconds() // 60))
             if age > LOG_WINDOW_MINUTES:
                 continue
             if size == 0 or text.strip().startswith("Sending to ") and len(text.strip().splitlines()) <= 1:
+                target = parse_delivery_log_target(path)
+                current = status_index.get(target, {})
+                refreshed = parse_ts(current.get("updated", ""))
+                if refreshed and refreshed.tzinfo is None:
+                    refreshed = refreshed.replace(tzinfo=datetime.timezone.utc)
+                if (
+                    refreshed and refreshed > mtime_dt and
+                    current.get("status") not in ("delivery_failed", "delivering", "delivered_waiting_for_receiver")
+                ):
+                    continue
                 if age >= ACK_STALE_MINUTES:
                     events.append({
                         "path": str(path),
@@ -352,7 +368,8 @@ def delivery_log_events():
     return events
 
 status_events = [e for e in (status_event(p) for p in status_files()) if e]
-delivery_events = delivery_log_events()
+status_index = {event["agent"]: event for event in status_events}
+delivery_events = delivery_log_events(status_index)
 deep_events = deep_events_for(status_events) if deep else []
 def public_event(event):
     return {k: v for k, v in event.items() if k != "_text"}
