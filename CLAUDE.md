@@ -74,8 +74,8 @@ Agents (and manual editors) must write `STATUS.md` in this structure for the das
 - refreshed_at: <ISO timestamp>
 - agent_id: <id>
 - current objective: <task>
-- current status: idle | working | blocked | offline
-- active blocker: <issue or "none">
+- current status: idle | working | blocked | done | offline
+- active blocker: <issue or none>
 - next action: <what's next>
 - last meaningful output: <summary>
 
@@ -87,6 +87,11 @@ Agents (and manual editors) must write `STATUS.md` in this structure for the das
 ```
 
 `generate-dashboard.sh` parses these files with Python regex; field names must match exactly.
+
+Parser-safe status rules:
+- Use `active blocker: none` exactly when there is no blocker; do not add trailing punctuation.
+- Do not write `not blocked` in `current status`; use `idle`, `done`, `done/idle`, or `complete` with detail instead.
+- Keep blocker wording in `active blocker`; avoid saying `no blockers` or `no remaining blockers` in `current status`.
 
 ## Environment Variables (used by scripts)
 

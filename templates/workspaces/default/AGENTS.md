@@ -17,6 +17,7 @@ Workspace for {{NAME}}.
 ## Status Reporting
 - The canonical dashboard status file is `/data/.openclaw/shared/agents/{{ID}}/STATUS.md`.
 - Keep `current status`, `current objective`, `active blocker`, `next action`, and `last meaningful output` accurate.
+- For clear state, use `active blocker: none` exactly when unblocked; do not write `not blocked` or `no remaining blockers` in `current status`.
 - A workspace-local `STATUS.md` is only a private scratch note unless the task explicitly asks for it.
 - Dashboard presence is status-only. When you talk, join a discussion, or receive a new routed task, update text fields and handoffs only; do not attach, describe, or generate desk/screen/monitor SVG assets for the Talk state. Desk monitors are dashboard-owned decoration and should appear only while you are at your desk.
 

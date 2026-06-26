@@ -13,6 +13,8 @@ set -euo pipefail
 #   ACTIVITY_ROOT=...           Directory for dashboard-visible send events.
 #   AGENT_TIMEOUT=300           Per-agent OpenClaw timeout.
 #   RECOVERS_SEND_ID=...        Optional sendId this delivery supersedes.
+#   ALLOW_LOCAL_FALLBACK=0      Set to 1 to allow embedded fallback when Gateway fails.
+#   ALLOW_OUTBOX_SUCCESS=0      Set to 1 to treat outbox queueing as success.
 
 AGENT="${1:?Usage: send-task.sh <agent-id> '<message>'}"
 
@@ -104,6 +106,85 @@ PY
 
 record_task_event "sending" "queued for OpenClaw delivery"
 
+record_run_metadata() {
+  local delivery="$1"
+  local transport="$2"
+  local output_file="$3"
+  python3 - "$ACTIVITY_ROOT/task-sends.ndjson" "$SEND_ID" "$COMPANY_SEND_FROM" "$AGENT" "$COMPANY_WORKFLOW_ID" "$delivery" "$transport" "$MSG" "$RECOVERS_SEND_ID" "$output_file" <<'PY' || true
+import datetime
+import json
+import re
+import sys
+from pathlib import Path
+
+path, send_id, sender, agent, workflow_id, delivery, transport, message, recovers_send_id, output_file = sys.argv[1:11]
+
+def section(text, heading):
+    lines = text.splitlines()
+    capture = False
+    out = []
+    target = "## " + heading.lower()
+    for line in lines:
+        s = line.strip()
+        if s.lower().startswith("## "):
+            if capture:
+                break
+            capture = s.lower() == target
+            continue
+        if capture and s:
+            out.append(s)
+    return " ".join(out).strip()
+
+summary = (
+    section(message, "Task")
+    or section(message, "Objective")
+    or section(message, "Expected Output")
+    or next((ln.strip("# ").strip() for ln in message.splitlines() if ln.strip() and not ln.lstrip().startswith("-")), "")
+)
+
+raw = Path(output_file).read_text(encoding="utf-8", errors="replace") if output_file else ""
+parsed = None
+for idx, ch in enumerate(raw):
+    if ch != "{":
+        continue
+    try:
+        parsed = json.loads(raw[idx:])
+        break
+    except Exception:
+        continue
+
+meta = parsed.get("meta", {}) if isinstance(parsed, dict) else {}
+agent_meta = meta.get("agentMeta", {}) if isinstance(meta, dict) else {}
+event = {
+    "ts": datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+    "sendId": send_id,
+    "workflowId": workflow_id,
+    "kind": "task_sent",
+    "type": "task_sent",
+    "from": sender,
+    "to": agent,
+    "delivery": delivery,
+    "detail": transport,
+    "summary": summary[:240] or f"Task sent to {agent}",
+}
+if recovers_send_id:
+    event["recoversSendId"] = recovers_send_id
+for key in ("transport", "fallbackFrom", "fallbackReason", "fallbackSessionId", "fallbackSessionKey"):
+    if meta.get(key):
+        event[key] = meta[key]
+if agent_meta.get("sessionId"):
+    event["sessionId"] = agent_meta["sessionId"]
+if agent_meta.get("model"):
+    event["model"] = agent_meta["model"]
+if meta.get("finalAssistantVisibleText"):
+    event["finalAssistantVisibleText"] = str(meta["finalAssistantVisibleText"])[:500]
+if parsed is None:
+    event["parseWarning"] = "openclaw agent output was not JSON"
+with open(path, "a", encoding="utf-8") as f:
+    f.write(json.dumps(event, ensure_ascii=False) + "\n")
+PY
+}
+
 run_with_timeout() {
   local limit="$1"
   shift
@@ -186,17 +267,30 @@ if [ -z "${GATEWAY_TIMEOUT:-}" ]; then
   fi
 fi
 
-if run_with_timeout "$GATEWAY_TIMEOUT" openclaw agent --timeout "$AGENT_TIMEOUT" --agent "$AGENT" --message "$MSG"; then
-  record_task_event "delivered" "gateway"
+GATEWAY_OUTPUT="$(mktemp)"
+if run_with_timeout "$GATEWAY_TIMEOUT" openclaw agent --json --timeout "$AGENT_TIMEOUT" --agent "$AGENT" --message "$MSG" >"$GATEWAY_OUTPUT" 2>&1; then
+  record_run_metadata "completed" "gateway" "$GATEWAY_OUTPUT"
+  cat "$GATEWAY_OUTPUT"
+  rm -f "$GATEWAY_OUTPUT"
   exit 0
 fi
 
-echo "WARNING: gateway delivery to $AGENT failed or timed out; retrying locally" >&2
+echo "WARNING: gateway delivery to $AGENT failed or timed out" >&2
+cat "$GATEWAY_OUTPUT" >&2 || true
 
-if run_with_timeout "$AGENT_TIMEOUT" openclaw agent --local --timeout "$AGENT_TIMEOUT" --agent "$AGENT" --session-key "agent:${AGENT}:main" --message "$MSG"; then
-  record_task_event "delivered" "local"
-  exit 0
+if [ "${ALLOW_LOCAL_FALLBACK:-0}" = "1" ]; then
+  echo "WARNING: ALLOW_LOCAL_FALLBACK=1; retrying locally" >&2
+  LOCAL_OUTPUT="$(mktemp)"
+  if run_with_timeout "$AGENT_TIMEOUT" openclaw agent --json --local --timeout "$AGENT_TIMEOUT" --agent "$AGENT" --session-key "agent:${AGENT}:main" --message "$MSG" >"$LOCAL_OUTPUT" 2>&1; then
+    record_run_metadata "completed" "local" "$LOCAL_OUTPUT"
+    cat "$LOCAL_OUTPUT"
+    rm -f "$GATEWAY_OUTPUT" "$LOCAL_OUTPUT"
+    exit 0
+  fi
+  cat "$LOCAL_OUTPUT" >&2 || true
+  rm -f "$LOCAL_OUTPUT"
 fi
+rm -f "$GATEWAY_OUTPUT"
 
 if [ "${STRICT_SEND:-0}" = "1" ]; then
   record_task_event "failed" "strict send failed"
@@ -219,3 +313,7 @@ EOF
 
 record_task_event "queued" "$OUTBOX_FILE"
 echo "WARNING: direct delivery failed; queued message at $OUTBOX_FILE" >&2
+if [ "${ALLOW_OUTBOX_SUCCESS:-0}" = "1" ]; then
+  exit 0
+fi
+exit 1

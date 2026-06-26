@@ -6,33 +6,20 @@
 ```md
 # STATUS.md
 
-## Current Objective
-<หนึ่งบรรทัดสรุปงานหลัก>
-
-## Status
-<idle | queued | delivering | delivered_waiting_for_receiver | working | blocked | delivery_failed | done>
-
-## Work Item
-<เช่น dashboard-refresh-flow>
-
-## Card ID
-<เช่น qa / backend / pm>
-
-## Requested By
-<เช่น pm / ceo / techlead>
-
-## Artifact Focus
-<artifact สำคัญที่คาดว่าจะผลิต เช่น test-result, requirement, technical-note>
-
-## Next Action
-<ขั้นถัดไป>
-
-## Last Meaningful Output
-<ผลลัพธ์ล่าสุด>
-
-## Collaboration
-<คุยกับใคร>
+- refreshed_at: <ISO timestamp>
+- agent_id: <pm | designer | frontend | backend | qa | techlead>
+- current objective: <หนึ่งบรรทัดสรุปงานหลัก>
+- current status: <idle | queued | delivering | delivered_waiting_for_receiver | working | blocked | delivery_failed | done>
+- active blocker: <none หรือ owner / missing input / impact / decision needed>
+- next action: <ขั้นถัดไป>
+- last meaningful output: <ผลลัพธ์ล่าสุด พร้อม artifact/command/path/test evidence>
+- workflow id: <workflow-id หรือ none active>
 ```
+
+Parser-safe wording:
+- Use `active blocker: none` exactly when there is no blocker; do not write `none.` with punctuation.
+- Do not write `not blocked` in `current status`; use `idle`, `done`, `done/idle`, or `complete`.
+- Do not put `no blockers` / `no remaining blockers` in `current status`; keep blocker state in `active blocker`.
 
 ## Delivery state example
 Use this before the receiving agent has acknowledged the handoff with evidence.

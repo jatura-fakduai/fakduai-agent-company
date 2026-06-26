@@ -87,6 +87,66 @@ def now_iso():
 
 generated_at = now_iso()
 
+def remove_tree(path):
+    path = Path(path)
+    if not path.exists():
+        return
+    for attempt in range(3):
+        try:
+            shutil.rmtree(path)
+            return
+        except FileNotFoundError:
+            return
+        except OSError:
+            if attempt == 2:
+                raise
+            import stat, time
+            for child in sorted(path.rglob('*'), key=lambda p: len(p.parts), reverse=True):
+                try:
+                    child.chmod(child.stat().st_mode | stat.S_IWUSR)
+                except OSError:
+                    pass
+            time.sleep(0.1)
+
+DASHBOARD_SAFE_ARTIFACT_SUFFIXES = {
+    '.md', '.txt', '.json', '.ndjson', '.csv', '.html', '.htm',
+    '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.pdf',
+}
+DASHBOARD_SKIP_DIRS = {
+    '.cache', '.git', '.next', '.nuxt', '.parcel-cache', '.turbo',
+    '.venv', '__pycache__', 'build', 'coverage', 'dist',
+    'node_modules', 'playwright-report', 'tmp',
+}
+DASHBOARD_ARTIFACT_MAX_BYTES = int(os.environ.get('DASHBOARD_ARTIFACT_MAX_BYTES', str(5 * 1024 * 1024)))
+
+def copy_dashboard_safe_tree(src_root, dst_root):
+    src_root = Path(src_root)
+    dst_root = Path(dst_root)
+    copied = 0
+    if not src_root.exists():
+        return copied
+    for src in sorted(src_root.rglob('*')):
+        if not src.is_file():
+            continue
+        rel = src.relative_to(src_root)
+        if any(part in DASHBOARD_SKIP_DIRS for part in rel.parts[:-1]):
+            continue
+        if src.suffix.lower() not in DASHBOARD_SAFE_ARTIFACT_SUFFIXES:
+            continue
+        try:
+            if src.stat().st_size > DASHBOARD_ARTIFACT_MAX_BYTES:
+                continue
+        except OSError:
+            continue
+        dst = dst_root / rel
+        try:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            copied += 1
+        except OSError:
+            continue
+    return copied
+
 def generated_meta(source_status='ok', warnings=None, **extra):
     meta = {
         'generatedAt': generated_at or now_iso(),
@@ -145,7 +205,7 @@ def status_dt(value):
 def delivery_recovered_by_status(event, status, updated):
     if event.get('delivery') != 'failed':
         return False
-    if status in ('delivery_failed', 'delivering', 'delivered_waiting_for_receiver'):
+    if status in ('delivery_failed', 'delivering', 'handoff_created_not_accepted', 'accepted_waiting_for_receiver_evidence', 'delivered_waiting_for_receiver'):
         return False
     sent_dt = event_dt(event)
     updated_dt = status_dt(updated)
@@ -180,10 +240,40 @@ def load_task_send_events():
     return sorted(dedup.values(), key=lambda e: e.get('ts', ''), reverse=True)
 
 task_send_events = load_task_send_events()
+
+def load_pinto_reply_events():
+    path = activity_root / 'pinto-replies.ndjson'
+    if not path.exists():
+        return []
+    events = []
+    try:
+        lines = path.read_text(encoding='utf-8', errors='ignore').splitlines()[-200:]
+    except Exception:
+        return []
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except Exception:
+            continue
+        event.setdefault('kind', 'pinto_reply')
+        event.setdefault('type', 'pinto_reply')
+        event.setdefault('from', event.get('accountId', 'pm'))
+        event.setdefault('to', event.get('chatId', 'pinto'))
+        delivery = event.get('delivery', '')
+        preview = event.get('messagePreview', '')
+        event.setdefault('summary', f"Pinto reply {delivery}".strip())
+        if preview:
+            event['summary'] = f"{event['summary']}: {preview[:120]}"
+        events.append(event)
+    return sorted(events, key=lambda e: e.get('ts', ''), reverse=True)
+
+pinto_reply_events = load_pinto_reply_events()
 recovered_send_ids = {
     event.get('recoversSendId')
     for event in task_send_events
-    if event.get('recoversSendId') and event.get('delivery') in ('delivered', 'delivery_recovered', 'recovered')
+    if event.get('recoversSendId') and event.get('delivery') in ('accepted', 'completed', 'delivered', 'delivery_recovered', 'recovered')
 }
 latest_task_by_agent = {}
 for event in task_send_events:
@@ -202,6 +292,10 @@ def stale_summary(updated, status):
     age_minutes = max(0, int((utc_now() - dt.astimezone(datetime.timezone.utc)).total_seconds() // 60))
     if status == 'delivery_failed':
         return {'level': 'stale', 'ageMinutes': age_minutes, 'reason': 'delivery failed; retry or reassign'}
+    if status == 'handoff_created_not_accepted' and age_minutes >= 2:
+        return {'level': 'stale', 'ageMinutes': age_minutes, 'reason': f'handoff not accepted by receiver for {age_minutes}m'}
+    if status == 'accepted_waiting_for_receiver_evidence' and age_minutes >= 10:
+        return {'level': 'stale', 'ageMinutes': age_minutes, 'reason': f'accepted but no receiver evidence for {age_minutes}m'}
     if status == 'delivered_waiting_for_receiver' and age_minutes >= 5:
         return {'level': 'stale', 'ageMinutes': age_minutes, 'reason': f'no receiver acknowledgement for {age_minutes}m'}
     if status == 'delivering' and age_minutes >= 3:
@@ -217,8 +311,18 @@ def stale_summary(updated, status):
 def blocker_from_status(status, text, next_action=''):
     active = pick_field(text, 'active blocker', '') or pick_field(text, 'Active Blocker', '')
     blockers = parse_section(text, 'Blockers') if 'parse_section' in globals() else ''
-    missing = active if active and active.lower() not in ('none', 'n/a', 'no') else blockers
-    is_blocked = status == 'blocked' or bool(missing and missing.lower() not in ('none', 'n/a', 'no blockers'))
+    def no_blocker(value):
+        v = (value or '').strip().lower().strip('`*_ -.;,')
+        return (
+            not v
+            or v in ('none', 'n/a', 'no', 'no blockers', 'no blocker')
+            or v.startswith('none ')
+            or v.startswith('none;')
+            or v.startswith('none,')
+            or v.startswith('none for ')
+        )
+    missing = active if not no_blocker(active) else blockers
+    is_blocked = status == 'blocked' or bool(missing and not no_blocker(missing))
     return {
         'isBlocked': bool(is_blocked),
         'owner': pick_field(text, 'blocker owner', '') or pick_field(text, 'owner', ''),
@@ -263,24 +367,48 @@ def pick_field(text, field, fallback):
 
 def normalize_status(v):
     v = v.strip().lower().strip('`*_ -')
-    if v in ('queued', 'delivering', 'delivered_waiting_for_receiver', 'delivery_failed'):
+    if (
+        'no active' in v
+        or 'parked' in v
+        or 'idle;' in v
+        or 'closed for now' in v
+        or 'wait for pm' in v
+        or 'waiting for pm' in v
+    ):
+        return 'idle'
+    if v in ('queued', 'handoff_created_not_accepted', 'accepted_waiting_for_receiver_evidence', 'delivering', 'delivered_waiting_for_receiver', 'delivery_failed'):
         return v
+    if 'handoff_created_not_accepted' in v or 'not accepted' in v:
+        return 'handoff_created_not_accepted'
+    if 'accepted_waiting_for_receiver_evidence' in v or 'accepted waiting' in v:
+        return 'accepted_waiting_for_receiver_evidence'
     if 'delivered_waiting_for_receiver' in v or 'waiting for receiver' in v:
         return 'delivered_waiting_for_receiver'
     if 'delivery_failed' in v or 'delivery failed' in v:
         return 'delivery_failed'
     if 'delivering' in v:
         return 'delivering'
+    if 'no accepted' in v or ('stale' in v and 'non-stale' not in v and 'not stale' not in v):
+        return 'blocked'
+    if 'failed' in v:
+        return 'blocked'
     if v == 'queued' or 'handoff queued' in v:
         return 'queued'
-    if 'no-design-blocker' in v or 'no blocker' in v or 'no-blocker' in v or 'unblocked' in v:
+    if (
+        'no-design-blocker' in v
+        or 'no blocker' in v
+        or 'no blockers' in v
+        or 'no remaining' in v and 'blocker' in v
+        or 'no-blocker' in v
+        or 'unblocked' in v
+    ):
         return 'idle'
     if v.startswith('waiting_on_'):
         return 'working'
     if v.startswith('waiting for ') or v.startswith('waiting on ') or v.startswith('waiting_'):
         return 'idle'
-    if 'block' in v or 'stuck' in v: return 'blocked'
     if 'done' in v or 'complete' in v or 'approved' in v or 'pass' in v: return 'done'
+    if 'block' in v or 'stuck' in v: return 'blocked'
     if 'work' in v or 'progress' in v or 'doing' in v or 'active' in v: return 'working'
     if 'offline' in v or 'down' in v: return 'offline'
     if 'idle' in v and 'online' in v: return 'idle'
@@ -453,6 +581,11 @@ for slug, acfg in agents_config.items():
             'summary': task_preview,
             'delivery': 'recovered' if task_recovered else latest_task.get('delivery', ''),
             'detail': 'superseded by newer STATUS.md evidence' if task_recovered else latest_task.get('detail', ''),
+            'sessionId': latest_task.get('sessionId', ''),
+            'model': latest_task.get('model', ''),
+            'transport': latest_task.get('transport', ''),
+            'fallbackReason': latest_task.get('fallbackReason', ''),
+            'finalAssistantVisibleText': latest_task.get('finalAssistantVisibleText', ''),
             'sentAt': latest_task.get('ts', ''),
             'ageSeconds': task_age,
             'isRecent': bool(task_is_recent),
@@ -469,13 +602,13 @@ for slug, acfg in agents_config.items():
                 next_action = task_preview[:160]
             if last_output in ('N/A', 'No recent output', 'agent initialized', ''):
                 last_output = f"Task received from {recent_task['from']}: {task_preview[:160]}"
-            event_dt = parse_ts(latest_task.get('ts', ''))
+            latest_event_dt = parse_ts(latest_task.get('ts', ''))
             updated_dt = parse_ts(updated)
-            if event_dt and event_dt.tzinfo is None:
-                event_dt = event_dt.replace(tzinfo=datetime.timezone.utc)
+            if latest_event_dt and latest_event_dt.tzinfo is None:
+                latest_event_dt = latest_event_dt.replace(tzinfo=datetime.timezone.utc)
             if updated_dt and updated_dt.tzinfo is None:
                 updated_dt = updated_dt.replace(tzinfo=datetime.timezone.utc)
-            if event_dt and (not updated_dt or event_dt > updated_dt):
+            if latest_event_dt and (not updated_dt or latest_event_dt > updated_dt):
                 updated = latest_task.get('ts', updated)
 
     items.append({
@@ -538,7 +671,11 @@ def slugify_name(v):
     return re.sub(r'[^a-z0-9]+', '', (v or '').lower())
 
 cards = []
-canonical_statuses = {'idle', 'working', 'blocked', 'done'}
+canonical_statuses = {
+    'idle', 'working', 'blocked', 'done',
+    'queued', 'handoff_created_not_accepted', 'accepted_waiting_for_receiver_evidence',
+    'delivery_failed', 'delivered_waiting_for_receiver',
+}
 weak_output_markers = {
     'working on it', 'investigating', 'continue working', 'monitoring', 'tracking', 'ongoing', 'active'
 }
@@ -675,6 +812,7 @@ for slug, acfg in agents_config.items():
 
     raw_status = infer_status(text)
     runtime_proof = runtime_proof_for(slug, text)
+    workflow_id = runtime_proof.get('workflowId', '')
     status_literal = parse_section(text, 'Status') or parse_kv(text, 'Status') or raw_status
     owner_name = acfg.get('name', slug)
     owner_emoji = acfg.get('emoji', '🤖')
@@ -683,7 +821,9 @@ for slug, acfg in agents_config.items():
     last_output = (parse_section(text, 'Last Meaningful Output') or parse_section(text, 'Summary') or parse_kv(text, 'Last Meaningful Output') or '').strip()
     recent_card_task = latest_task_by_agent.get(slug)
     recent_card_preview = ''
-    if recent_card_task and is_recent_task_event(recent_card_task):
+    status_text_for_activity = ' '.join([task, next_action, last_output, status_literal]).lower()
+    parked_or_no_active = 'no active' in status_text_for_activity or 'parked' in status_text_for_activity or 'wait for pm' in status_text_for_activity
+    if recent_card_task and is_recent_task_event(recent_card_task) and not parked_or_no_active:
         recent_card_preview = task_event_preview(recent_card_task)
         if raw_status in ('idle', 'offline', 'done'):
             raw_status = 'working'
@@ -728,7 +868,7 @@ for slug, acfg in agents_config.items():
             'label': f'Status should be plain `{literal_norm}`'
         })
 
-    if raw_status == 'blocked':
+    if raw_status in ('blocked', 'delivery_failed', 'handoff_created_not_accepted'):
         warnings.append({'type': 'blocked', 'label': 'Blocked, needs owner follow-up'})
         if not next_action:
             warnings.append({'type': 'blocked', 'label': 'Blocked without clear next action'})
@@ -739,7 +879,7 @@ for slug, acfg in agents_config.items():
     if lo and any(marker == lo or marker in lo for marker in weak_output_markers):
         warnings.append({'type': 'weak-output', 'label': 'Last output is vague'})
 
-    if raw_status == 'working' and not next_action:
+    if raw_status in ('working', 'accepted_waiting_for_receiver_evidence', 'delivered_waiting_for_receiver') and not next_action:
         warnings.append({'type': 'missing-next', 'label': 'Working without next action'})
 
     try:
@@ -755,16 +895,20 @@ for slug, acfg in agents_config.items():
         card_updated_at = recent_card_task.get('ts') or card_updated_at
 
     if age_minutes is not None:
+        if raw_status == 'handoff_created_not_accepted' and age_minutes >= 2:
+            warnings.append({'type': 'stale', 'label': f'Handoff not accepted for {age_minutes}m'})
+        if raw_status in ('accepted_waiting_for_receiver_evidence', 'delivered_waiting_for_receiver') and age_minutes >= 10:
+            warnings.append({'type': 'stale', 'label': f'Accepted/delivered but no receiver evidence for {age_minutes}m'})
         if raw_status == 'working' and age_minutes >= 30:
             warnings.append({'type': 'stale', 'label': f'No status update for {age_minutes}m while working'})
-        if raw_status == 'blocked' and age_minutes >= 15:
+        if raw_status in ('blocked', 'delivery_failed') and age_minutes >= 15:
             warnings.append({'type': 'stale', 'label': f'Blocked for {age_minutes}m without refresh'})
-        if raw_status in ('idle', 'done') and age_minutes >= 180:
+        if raw_status == 'idle' and age_minutes >= 180:
             warnings.append({'type': 'stale', 'label': f'Status not refreshed for {age_minutes}m'})
 
     escalation_score = 0
     escalation_owner = ''
-    if raw_status == 'blocked':
+    if raw_status in ('blocked', 'delivery_failed', 'handoff_created_not_accepted'):
         escalation_score += 60
         escalation_owner = 'CEO'
     if any(w['type'] == 'stale' for w in warnings):
@@ -779,7 +923,7 @@ for slug, acfg in agents_config.items():
     if any(w['type'] == 'weak-output' for w in warnings):
         escalation_score += 10
         escalation_owner = escalation_owner or 'PM'
-    if raw_status == 'blocked' and age_minutes is not None and age_minutes >= 30:
+    if raw_status in ('blocked', 'delivery_failed', 'handoff_created_not_accepted') and age_minutes is not None and age_minutes >= 30:
         escalation_score += 20
         escalation_owner = 'CEO'
     if raw_status == 'working' and age_minutes is not None and age_minutes >= 60:
@@ -789,9 +933,9 @@ for slug, acfg in agents_config.items():
     # Map status to kanban stage
     if raw_status in ('done', 'completed'):
         stage = 'done'
-    elif raw_status == 'blocked':
+    elif raw_status in ('blocked', 'delivery_failed', 'handoff_created_not_accepted'):
         stage = 'blocked'
-    elif raw_status == 'working':
+    elif raw_status in ('working', 'accepted_waiting_for_receiver_evidence', 'delivered_waiting_for_receiver'):
         stage = 'doing'
     else:
         stage = 'todo'
@@ -915,7 +1059,19 @@ for slug, acfg in agents_config.items():
     proof_kind = 'idle'
     proof_label = 'Idle / waiting'
     proof_reason = 'No active work assigned'
-    if session_failed:
+    if raw_status == 'delivery_failed':
+        proof_kind = 'failed'
+        proof_label = 'Delivery failed'
+        proof_reason = blocker_from_status(raw_status, text, next_action).get('missingInput') or 'Gateway delivery failed; retry or reassign'
+    elif raw_status == 'handoff_created_not_accepted':
+        proof_kind = 'not-accepted'
+        proof_label = 'Not accepted'
+        proof_reason = 'Handoff file exists, but there is no accepted Gateway run/task evidence'
+    elif raw_status in ('accepted_waiting_for_receiver_evidence', 'delivered_waiting_for_receiver'):
+        proof_kind = 'accepted'
+        proof_label = 'Accepted'
+        proof_reason = 'Delivery returned successfully; waiting for receiver evidence/status update'
+    elif session_failed:
         proof_kind = 'failed'
         proof_label = 'Failed'
         proof_reason = f"Latest OpenClaw session is {runtime_session.get('status')}"
@@ -958,6 +1114,7 @@ for slug, acfg in agents_config.items():
 
     cards.append({
         'id': slug,
+        'workflowId': workflow_id,
         'workItem': work_item,
         'title': task[:80],
         'owner': owner_name,
@@ -975,6 +1132,12 @@ for slug, acfg in agents_config.items():
             'workflowId': recent_card_task.get('workflowId', ''),
             'summary': task_event_preview(recent_card_task),
             'delivery': recent_card_task.get('delivery', ''),
+            'detail': recent_card_task.get('detail', ''),
+            'sessionId': recent_card_task.get('sessionId', ''),
+            'model': recent_card_task.get('model', ''),
+            'transport': recent_card_task.get('transport', ''),
+            'fallbackReason': recent_card_task.get('fallbackReason', ''),
+            'finalAssistantVisibleText': recent_card_task.get('finalAssistantVisibleText', ''),
             'sentAt': recent_card_task.get('ts', ''),
             'ageSeconds': task_event_age_seconds(recent_card_task),
             'isRecent': is_recent_task_event(recent_card_task),
@@ -1136,12 +1299,12 @@ print(f'Wrote {kanban_file} ({len(cards)} cards)')
 # ---------------- Evidence layer ----------------
 artifacts_dir = Path(out_dir) / 'artifacts'
 if artifacts_dir.exists():
-    shutil.rmtree(artifacts_dir)
+    remove_tree(artifacts_dir)
 artifacts_dir.mkdir(parents=True, exist_ok=True)
 
 agent_files_dir = Path(out_dir) / 'agent-files'
 if agent_files_dir.exists():
-    shutil.rmtree(agent_files_dir)
+    remove_tree(agent_files_dir)
 agent_files_dir.mkdir(parents=True, exist_ok=True)
 
 agent_file_manifest = []
@@ -1304,6 +1467,7 @@ for slug, acfg in agents_config.items():
                 'owner': slug,
                 'ownerName': acfg.get('name', slug),
                 'role': acfg.get('role', ''),
+                'workflowId': workflow_id_from_status(status_text),
                 'workItem': work_item or 'unknown',
                 'cardId': card_id or slug,
                 'artifactType': artifact_type,
@@ -1350,7 +1514,13 @@ if workflow_artifact_root.exists():
                 continue
             mime = mimetypes.guess_type(str(dst))[0] or ''
             suffix = src.suffix.lower()
-            artifact_type = 'evidence-image' if suffix in ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg') else 'evidence'
+            lower_name = str(src.relative_to(artifact_root)).lower()
+            if 'checklist' in lower_name:
+                artifact_type = 'checklist'
+            elif suffix in ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'):
+                artifact_type = 'evidence-image'
+            else:
+                artifact_type = 'evidence'
             title = src.stem.replace('_', ' ').replace('-', ' ')
             work_item = workflow_dir.name
             ts = __import__('datetime').datetime.fromtimestamp(src.stat().st_mtime).strftime('%Y%m%d-%H%M%S')
@@ -1359,6 +1529,7 @@ if workflow_artifact_root.exists():
                 'owner': owner,
                 'ownerName': acfg.get('name', owner),
                 'role': acfg.get('role', ''),
+                'workflowId': workflow_dir.name,
                 'workItem': work_item,
                 'cardId': owner,
                 'artifactType': artifact_type,
@@ -1391,6 +1562,10 @@ outbox_root = Path(os.environ.get('OUTBOX_ROOT', str(Path.home() / '.openclaw' /
 agent_status_index = {item['id']: item for item in items}
 activities = []
 workflows = []
+generated_workflows_dir = Path(out_dir) / 'workflows'
+if generated_workflows_dir.exists():
+    remove_tree(generated_workflows_dir)
+generated_workflows_dir.mkdir(parents=True, exist_ok=True)
 
 for event in task_send_events:
     agent_status = agent_status_index.get(event.get('to', ''), {})
@@ -1409,8 +1584,29 @@ for event in task_send_events:
         'delivery': 'recovered' if event_recovered else event.get('delivery', ''),
         'detail': 'superseded by newer STATUS.md evidence' if event_recovered else event.get('detail', ''),
         'sendId': event.get('sendId', ''),
+        'sessionId': event.get('sessionId', ''),
+        'model': event.get('model', ''),
+        'transport': event.get('transport', ''),
+        'fallbackReason': event.get('fallbackReason', ''),
+        'finalAssistantVisibleText': event.get('finalAssistantVisibleText', ''),
         'recovered': bool(event_recovered),
         'recoversSendId': event.get('recoversSendId', ''),
+    })
+
+for event in pinto_reply_events:
+    activities.append({
+        'ts': event.get('ts', ''),
+        'workflowId': event.get('workflowId', '') or 'pinto-replies',
+        'kind': 'pinto_reply',
+        'type': 'pinto_reply',
+        'from': event.get('from', event.get('accountId', 'pm')),
+        'to': event.get('to', event.get('chatId', 'pinto')),
+        'summary': event.get('summary', 'Pinto reply delivery event')[:240],
+        'delivery': event.get('delivery', ''),
+        'detail': event.get('reason', '') or event.get('responsePreview', ''),
+        'status': event.get('status', ''),
+        'accountId': event.get('accountId', ''),
+        'chatId': event.get('chatId', ''),
     })
 
 def read_workflow_objective(workflow_dir):
@@ -1483,9 +1679,9 @@ if workflow_root.exists():
         })
 
         # Copy workflow files into dashboard data for browser access.
-        dst_workflow_dir = Path(out_dir) / 'workflows' / workflow_id
+        dst_workflow_dir = generated_workflows_dir / workflow_id
         if dst_workflow_dir.exists():
-            shutil.rmtree(dst_workflow_dir)
+            remove_tree(dst_workflow_dir)
         if handoff_dir.exists() or artifact_dir.exists() or (workflow_dir / 'WORKFLOW.md').exists():
             dst_workflow_dir.mkdir(parents=True, exist_ok=True)
             for name in ('WORKFLOW.md', 'events.ndjson'):
@@ -1495,7 +1691,7 @@ if workflow_root.exists():
             if handoff_dir.exists():
                 shutil.copytree(handoff_dir, dst_workflow_dir / 'handoffs', dirs_exist_ok=True)
             if artifact_dir.exists():
-                shutil.copytree(artifact_dir, dst_workflow_dir / 'artifacts', dirs_exist_ok=True)
+                copy_dashboard_safe_tree(artifact_dir, dst_workflow_dir / 'artifacts')
 
 if outbox_root.exists():
     for src in sorted(outbox_root.glob('*/*.md'), key=lambda p: p.stat().st_mtime, reverse=True)[:100]:

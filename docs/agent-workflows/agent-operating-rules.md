@@ -77,9 +77,12 @@ After meaningful work, update `STATUS.md` with:
 
 - Current Objective
 - Status
+- Active Blocker
 - Next Action
 - Last Meaningful Output
 - Collaboration
+
+For dashboard-safe parsing, write no-blocker state as `active blocker: none` exactly. Do not put phrases like `not blocked` or `no remaining blockers` in `current status`; use `idle`, `done`, `done/idle`, or `complete` and keep blocker details in the blocker field.
 
 Dashboard movement is inferred from status and routing events. Agents should not attach, describe, or generate desk/screen/monitor SVG assets when they move to Talk or join a discussion; those visual assets are owned by the dashboard and remain desk-only decoration.
 

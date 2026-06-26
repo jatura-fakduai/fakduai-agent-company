@@ -166,6 +166,8 @@ body.sprite-missing .oachar:after{left:10px;top:43px;width:30px}
 .proof.stale{background:rgba(251,146,60,.13);border-color:rgba(251,146,60,.42);color:#ffd19a}
 .proof.failed{background:rgba(248,81,73,.14);border-color:rgba(248,81,73,.44);color:#ffa198}
 .proof.blocked{background:rgba(248,81,73,.14);border-color:rgba(248,81,73,.44);color:#ffa198}
+.proof.not-accepted{background:rgba(248,81,73,.14);border-color:rgba(248,81,73,.44);color:#ffa198}
+.proof.accepted{background:rgba(88,166,255,.12);border-color:rgba(88,166,255,.36);color:#9dccff}
 .proof.waiting{background:rgba(88,166,255,.12);border-color:rgba(88,166,255,.36);color:#9dccff}
 .proof.done{background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.36);color:#a5f3fc}
 .proof.idle{background:rgba(139,148,158,.1);border-color:rgba(139,148,158,.28);color:#b7c0cc}
@@ -225,6 +227,7 @@ body.sprite-missing .oachar:after{left:10px;top:43px;width:30px}
 .colc{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:auto}
 .kc{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:9px 11px;margin-bottom:7px;cursor:pointer;transition:border-color .15s}
 .kc:hover{border-color:rgba(255,255,255,.15)}
+.kc.sel{border-color:rgba(88,166,255,.62);box-shadow:0 0 0 1px rgba(88,166,255,.2),inset 3px 0 0 #58a6ff;background:rgba(88,166,255,.06)}
 .kc.blk{border-color:rgba(229,57,53,.4);background:rgba(229,57,53,.05)}
 .kc.noproof{border-color:rgba(251,146,60,.38);background:rgba(251,146,60,.045)}
 .kct{font-size:12px;font-weight:700;color:#eee}
@@ -248,6 +251,25 @@ body.sprite-missing .oachar:after{left:10px;top:43px;width:30px}
 .evtbl tr:last-child td{border-bottom:none}
 .evtbl button{background:none;border:none;color:#79c0ff;font:inherit;font-weight:700;text-align:left;padding:0;cursor:pointer;max-width:100%;overflow-wrap:anywhere}
 .evtime{white-space:nowrap;color:#8b949e}
+.tdsec{margin-bottom:10px}
+.tdlabel{font-size:9px;color:#8b949e;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.tdcard{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);border-radius:9px;padding:8px}
+.clhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.cltitle{font-size:11px;color:#f0f6fc;font-weight:800;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cllink{background:none;border:none;color:#79c0ff;font-size:10px;font-weight:800;cursor:pointer;padding:0;white-space:nowrap}
+.clstats{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
+.clstat{font-size:9px;padding:2px 6px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:#b7c0cc;font-weight:800}
+.clstat.done{color:#7ee787;border-color:rgba(46,160,67,.34);background:rgba(46,160,67,.12)}
+.clstat.blocked{color:#ffa198;border-color:rgba(248,81,73,.34);background:rgba(248,81,73,.12)}
+.clsection{margin-top:7px}
+.clsection h4{font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:.8px;margin:8px 0 4px}
+.clitem{display:grid;grid-template-columns:16px 1fr;gap:6px;align-items:start;font-size:11px;line-height:1.35;color:#c9d1d9;padding:4px 0;border-top:1px solid rgba(255,255,255,.045)}
+.clitem:first-child{border-top:none}
+.clbox{width:12px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.24);display:flex;align-items:center;justify-content:center;font-size:9px;margin-top:1px;color:#7ee787}
+.clitem.done{color:#8b949e}.clitem.done .cltext{text-decoration:line-through;text-decoration-color:rgba(139,148,158,.55)}
+.clitem.done .clbox{border-color:rgba(46,160,67,.45);background:rgba(46,160,67,.13)}
+.clitem.blocked{color:#ffa198}.clitem.blocked .clbox{border-color:rgba(248,81,73,.48);background:rgba(248,81,73,.13);color:#ffa198}
+.clempty{font-size:11px;color:#8b949e;line-height:1.4;border:1px dashed rgba(255,255,255,.12);border-radius:8px;padding:9px;text-align:center}
 
 /* Activity */
 .as{margin-top:12px;border-top:1px solid rgba(255,255,255,.07);padding-top:8px}
@@ -481,7 +503,8 @@ let drag={on:false,sx:0,sy:0,cx:0,cy:0};
 let agents={},ROOMS=[],HOMES={},ACOL={},CLOTH={};
 let kanbanData=[],evidenceData=[],activityData={activities:[],workflows:[]};
 let tokenData={agents:[],models:[],totals:{totalTokens:0}},selectedTokenModel='';
-let selectedId='',cView='k';
+let selectedId='',selectedTaskId='',cView='k';
+let checklistCache={};
 let stageAgents={};
 let occluders={};
 let meetingSim=false,manualMeeting=null;
@@ -584,7 +607,7 @@ C.addEventListener('mouseleave',()=>drag.on=false);
 C.addEventListener('wheel',e=>{cam.z=Math.max(.8,Math.min(3,cam.z-e.deltaY*.001));e.preventDefault()},{passive:false});
 
 // Status
-function norm(s){s=(s||'').toLowerCase().trim();if(s.includes('block'))return'blocked';if(s.includes('done')||s.includes('complete')||s.includes('approved')||s.includes('pass'))return'done';if(s.includes('work')||s.includes('doing')||s.includes('progress')||s.includes('active'))return'working';if(s.includes('offline'))return'offline';return'idle'}
+function norm(s){s=(s||'').toLowerCase().trim();if(s.includes('delivery_failed')||s.includes('not_accepted')||s.includes('not accepted'))return'blocked';if(s.includes('accepted_waiting')||s.includes('delivered_waiting'))return'working';if(s.includes('block'))return'blocked';if(s.includes('done')||s.includes('complete')||s.includes('approved')||s.includes('pass'))return'done';if(s.includes('work')||s.includes('doing')||s.includes('progress')||s.includes('active'))return'working';if(s.includes('offline'))return'offline';return'idle'}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function escA(s){return esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function parseTs(v){if(!v||v==='recently'||v==='never')return null;const s=String(v).trim();const n=/^\d{4}-\d{2}-\d{2}T/.test(s)&&!/(Z|[+-]\d{2}:?\d{2})$/.test(s)?s+'Z':s;const t=new Date(n);return isNaN(t)?null:t}
@@ -717,6 +740,8 @@ function proofOf(item){
       failed:'Failed',
       stale:'Stale',
       blocked:'Blocked',
+      'not-accepted':'Not accepted',
+      accepted:'Accepted',
       waiting:'Waiting',
       done:'Done',
       idle:'Idle'
@@ -1854,7 +1879,12 @@ function swV(v){
 function filteredC(){
   const q=(document.getElementById('ws').value||'').toLowerCase();
   const s=(document.getElementById('wf').value||'').toLowerCase();
-  return kanbanData.filter(c=>{const mt=!q||[c.owner,c.id,c.title,c.nextAction,c.lastOutput].some(v=>(v||'').toLowerCase().includes(q));const ms=!s||norm(c.status)===s;return mt&&ms});
+  return kanbanData.filter(c=>{
+    const mt=!q||[c.owner,c.id,c.title,c.nextAction,c.lastOutput].some(v=>(v||'').toLowerCase().includes(q));
+    if(!mt)return false;
+    if(s)return norm(c.status)===s;
+    return true;
+  });
 }
 function renderW(){
   const cards=filteredC();
@@ -1892,7 +1922,7 @@ function ch(c){
   const proof=proofOf(c);
   const needsProof=norm(c.status)==='working'&&proof.kind==='no-proof';
   const proofChip=norm(c.status)==='working'?`<span class="proof ${escA(proof.kind)}">${esc(proof.label)}</span>`:'';
-  return`<div class="kc ${bl.is?'blk':''} ${needsProof?'noproof':''}" onclick="openTD('${c.id}')">
+  return`<div class="kc ${selectedTaskId===c.id?'sel':''} ${bl.is?'blk':''} ${needsProof?'noproof':''}" onclick="openTD('${c.id}')">
     <div class="kctop"><span style="font-size:15px">${c.emoji||'🤖'}</span><span class="kcowner">${c.owner||c.id}</span><span class="badge b${norm(c.status)[0]}">${norm(c.status)}</span></div>
     <div class="kctl">${esc((c.title||'').replace(/^[-\d.\s]+/,'').trim())}</div>
     <div class="kcmeta">${proofChip}${dt?`<span class="kcm">${age||dt}</span>`:''}${ev.length?`<span class="kcm">${ev.length} evidence</span>`:''}</div>
@@ -1923,9 +1953,34 @@ function shortEvTitle(e){
   const raw=(e.title||e.label||'Evidence').replace(/\.(md|txt|json|png|jpg|jpeg|webp|gif|svg|webm|mp4)$/i,'');
   return raw.length>18?raw.slice(0,17)+'…':raw;
 }
+function inactiveCard(c){
+  const txt=[c.status,c.title,c.nextAction,c.lastOutput].join(' ').toLowerCase();
+  return norm(c.status)==='idle'&&(txt.includes('no active')||txt.includes('parked')||txt.includes('wait for pm'));
+}
+function currentWorkflowId(c){
+  if(inactiveCard(c))return'';
+  return (c.workflowId||(c.recentTask&&c.recentTask.workflowId)||'').trim();
+}
+function isCurrentCardArtifact(c,e){
+  const wf=currentWorkflowId(c);
+  if(wf){
+    if((e.workflowId||'')&&e.workflowId!==wf)return false;
+    const ref=[e.originRef,e.sourcePath,e.path,e.href,e.workItem].filter(Boolean).join(' ');
+    if(ref&&!ref.includes(wf))return false;
+  }
+  if(e.cardId&&e.cardId!==c.id)return false;
+  if(e.workItem&&c.workItem&&e.workItem!==c.workItem&&wf&&!String(e.workItem).includes(wf))return false;
+  if(e.owner&&(e.owner!==c.ownerId&&e.owner!==c.id)){
+    return false;
+  }
+  return !!(wf||e.cardId===c.id||e.workItem===c.workItem);
+}
 function cardEvidence(c){
-  const local=(evidenceData||[]).filter(e=>e.owner===c.ownerId||e.owner===c.id||e.workItem===c.workItem||e.cardId===c.id);
-  const links=(c.evidenceLinks||[]).map(e=>({title:e.label||'Evidence',label:e.label||'Evidence',path:e.href||e.path||'',mimeType:e.mimeType||''}));
+  if(inactiveCard(c))return[];
+  const local=(evidenceData||[]).filter(e=>isCurrentCardArtifact(c,e));
+  const links=(c.evidenceLinks||[])
+    .filter(e=>currentWorkflowId(c)||e.cardId===c.id||e.workItem===c.workItem)
+    .map(e=>({title:e.label||'Evidence',label:e.label||'Evidence',path:e.href||e.path||'',mimeType:e.mimeType||''}));
   const seen=new Set();
   return local.concat(links).filter(e=>{
     if((e.artifactType||'').toLowerCase()==='status'||(e.title||e.label||'').toLowerCase()==='status')return false;
@@ -1943,8 +1998,93 @@ function renderEvidenceTable(ev){
     return`<tr><td class="evtime">${fmtDT(e.updatedAt||e.createdAt||e.timestamp)||'—'}</td><td><button onclick="openArt('${esc(e.path||e.href||'')}','${esc(e.mimeType||'')}','${esc(title)}')">${esc(evIcon(e))} ${esc(title)}</button></td></tr>`;
   }).join('')}</tbody></table>`;
 }
+function renderDeliveryPanel(c){
+  const rt=c.recentTask||{};
+  const rows=[
+    ['Delivery',rt.delivery||''],
+    ['Detail',rt.detail||''],
+    ['Send ID',rt.sendId||''],
+    ['Session',rt.sessionId||''],
+    ['Transport',rt.transport||''],
+    ['Model',rt.model||''],
+    ['Fallback',rt.fallbackReason||''],
+    ['Sent',fmtDT(rt.sentAt)||'']
+  ].filter(r=>r[1]);
+  if(!rows.length)return'<div class="clempty">No Gateway delivery evidence recorded for this card.</div>';
+  return`<table class="evtbl"><tbody>${rows.map(r=>`<tr><td class="evtime">${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</tbody></table>${rt.finalAssistantVisibleText?`<div style="font-size:11px;color:#8b949e;line-height:1.4;margin-top:6px">Reply: ${esc(rt.finalAssistantVisibleText)}</div>`:''}`;
+}
+function checklistLinks(c){
+  if(inactiveCard(c))return[];
+  const isChecklist=e=>/checklist/i.test([e.title,e.label,e.path,e.href,e.artifactType].filter(Boolean).join(' '));
+  const direct=[...(c.checklistLinks||[]),...(c.checklists||[])].map(e=>typeof e==='string'?{title:'Checklist',path:e}:e);
+  const fromCard=(c.evidenceLinks||[]).filter(e=>isChecklist(e)&&(currentWorkflowId(c)||e.cardId===c.id||e.workItem===c.workItem)).map(e=>({title:e.label||e.title||'Checklist',path:e.href||e.path||'',mimeType:e.mimeType||''}));
+  const local=(evidenceData||[]).filter(e=>{
+    if(!isChecklist(e))return false;
+    return isCurrentCardArtifact(c,e);
+  });
+  const seen=new Set();
+  return direct.concat(fromCard,local).map(e=>({title:e.title||e.label||'Checklist',path:e.path||e.href||'',mimeType:e.mimeType||''})).filter(e=>{
+    const key=e.path||e.title;
+    if(!key||seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+}
+function checklistStatus(mark){
+  if((mark||'').toLowerCase()==='x')return'done';
+  if((mark||'').includes('!'))return'blocked';
+  return'open';
+}
+function parseChecklistMd(src){
+  const sections=[];let current={title:'Checklist',items:[]};
+  const push=()=>{if(current.items.length)sections.push(current);current={title:'Checklist',items:[]}};
+  (src||'').replace(/\r\n/g,'\n').split('\n').forEach(line=>{
+    const h=line.match(/^#{1,3}\s+(.+)$/);
+    if(h){push();current={title:h[1].replace(/^Checklist:\s*/i,'').trim()||'Checklist',items:[]};return}
+    const item=line.match(/^\s*[-*]\s+\[([ xX!])\]\s+(.+)$/);
+    if(item)current.items.push({state:checklistStatus(item[1]),text:item[2].trim()});
+  });
+  push();
+  return sections;
+}
+function checklistSummary(sections){
+  const items=sections.flatMap(s=>s.items);
+  const done=items.filter(i=>i.state==='done').length;
+  const blocked=items.filter(i=>i.state==='blocked').length;
+  const open=items.length-done-blocked;
+  return{items,done,blocked,open,total:items.length};
+}
+function renderChecklistData(link,txt){
+  const sections=parseChecklistMd(txt);
+  const sum=checklistSummary(sections);
+  if(!sum.total)return`<div class="tdcard"><div class="clhead"><div class="cltitle">${esc(link.title||'Checklist')}</div><button class="cllink" onclick="openArt('${escA(link.path)}','${escA(link.mimeType||'')}','${escA(link.title||'Checklist')}')">Open</button></div><div class="clempty">Checklist file found, but no task boxes were detected.</div></div>`;
+  return`<div class="tdcard">
+    <div class="clhead"><div class="cltitle">${esc(link.title||'Checklist')}</div><button class="cllink" onclick="openArt('${escA(link.path)}','${escA(link.mimeType||'')}','${escA(link.title||'Checklist')}')">Open</button></div>
+    <div class="clstats"><span class="clstat">${sum.open} open</span><span class="clstat done">${sum.done} done</span>${sum.blocked?`<span class="clstat blocked">${sum.blocked} blocked</span>`:''}</div>
+    ${sections.map(s=>`<div class="clsection"><h4>${esc(s.title)}</h4>${s.items.map(i=>`<div class="clitem ${i.state}"><span class="clbox">${i.state==='done'?'✓':i.state==='blocked'?'!':''}</span><span class="cltext">${inlineMd(i.text)}</span></div>`).join('')}</div>`).join('')}
+  </div>`;
+}
+function renderChecklistPanel(c){
+  const links=checklistLinks(c);
+  if(!links.length)return'<div class="clempty">No checklist linked for this card yet.</div>';
+  const link=links[0];
+  const key=link.path;
+  if(checklistCache[key]&&checklistCache[key].status==='ready')return renderChecklistData(link,checklistCache[key].text);
+  if(checklistCache[key]&&checklistCache[key].status==='error')return`<div class="clempty">Checklist link exists, but the file could not be loaded.<br><button class="cllink" onclick="openArt('${escA(link.path)}','${escA(link.mimeType||'')}','${escA(link.title||'Checklist')}')">Open link</button></div>`;
+  checklistCache[key]={status:'loading',text:''};
+  fetch(link.path+'?t='+Date.now()).then(r=>{if(!r.ok)throw new Error('missing');return r.text()}).then(txt=>{
+    checklistCache[key]={status:'ready',text:txt};
+    if(selectedTaskId===c.id)openTD(c.id);
+  }).catch(()=>{
+    checklistCache[key]={status:'error',text:''};
+    if(selectedTaskId===c.id)openTD(c.id);
+  });
+  return'<div class="clempty">Loading checklist...</div>';
+}
 function openTD(id){
   const c=kanbanData.find(x=>x.id===id);if(!c)return;
+  selectedTaskId=id;
+  renderW();
   const bl=c.blocker||blocker(c);const dt=fmtDT(c.updatedAt);const age=fmtAge(minsAgo(c.updatedAt));
   const ev=cardEvidence(c);
   const proof=proofOf(c);
@@ -1958,9 +2098,11 @@ function openTD(id){
     <div style="font-size:11px;color:#c9d7e5;line-height:1.4;margin-bottom:8px">${esc(proof.reason||'No proof detail recorded')}</div>
     <div style="font-size:12px;font-weight:700;color:#f0f6fc;margin-bottom:6px;line-height:1.3">${esc((c.title||'').replace(/^[-\d.\s]+/,'').trim())}</div>
     ${dt?`<div style="font-size:10px;color:#8b949e;margin-bottom:8px">${dt}${age?' · '+age:''}</div>`:''}
-    ${c.nextAction?`<div style="margin-bottom:8px"><div style="font-size:9px;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Next Action</div><div style="font-size:12px;color:#d2a8ff">${esc(c.nextAction)}</div></div>`:''}
-    ${bl.is?`<div style="margin-bottom:8px"><div style="font-size:9px;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Blocker</div><div style="padding:8px;border-radius:8px;background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.2);color:#ffa198;font-size:11px;line-height:1.4">⏹ ${esc(bl.missing||'Needs follow-up')}${bl.next?`<br>Next: ${esc(bl.next)}`:''}</div></div>`:''}
-    ${ev.length?`<div style="margin-bottom:8px"><div style="font-size:9px;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Evidence</div>${renderEvidenceTable(ev)}</div>`:''}
+    ${c.nextAction?`<div class="tdsec"><div class="tdlabel">Next Action</div><div style="font-size:12px;color:#d2a8ff">${esc(c.nextAction)}</div></div>`:''}
+    ${bl.is?`<div class="tdsec"><div class="tdlabel">Blocker</div><div style="padding:8px;border-radius:8px;background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.2);color:#ffa198;font-size:11px;line-height:1.4">⏹ ${esc(bl.missing||'Needs follow-up')}${bl.next?`<br>Next: ${esc(bl.next)}`:''}</div></div>`:''}
+    <div class="tdsec"><div class="tdlabel">Delivery Evidence</div>${renderDeliveryPanel(c)}</div>
+    <div class="tdsec"><div class="tdlabel">Checklist</div>${renderChecklistPanel(c)}</div>
+    ${ev.length?`<div class="tdsec"><div class="tdlabel">Evidence</div>${renderEvidenceTable(ev)}</div>`:''}
   `;
 }
 
